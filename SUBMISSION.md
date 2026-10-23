@@ -30,7 +30,8 @@ Say what you need. Alexa does it on a real web page, tells you what it's doing, 
 
   The agent operates the GUI by looking at the screen: screenshot, decide, act, check.
 - **The bridge:** a Node server with no dependencies. It runs the agent headlessly, streams its events (spoken lines, actions, results) to the browser over Server-Sent Events, and keeps the session so the conversation carries across turns.
-- **The front end:** one HTML page. The Web Speech API handles listening and speaking. It shows a live activity feed and Yes/No confirmation cards, and after Alexa asks a question it listens for the answer automatically.
+- **Speech in:** the browser records your voice and stops automatically when you pause. A local faster-whisper model on the server transcribes it in about 1 second, with no cloud speech service. That matters for privacy, since health requests never leave the machine, and it works on networks where browser speech recognition is blocked.
+- **The front end:** one HTML page. The browser's built-in text-to-speech handles speaking. It shows a live activity feed and Yes/No confirmation cards, and after Alexa asks a question it listens for the answer automatically.
 - **The demo site:** a made-up pharmacy site, so the demo behaves the same every run and never places a real order.
 
 **Why it matters.** Most of the web will never get a voice skill or an MCP server. An agent that can use the existing GUI safely, with spoken narration and an explicit "yes" before it acts, makes the whole web reachable by voice. It's the same pattern an Alexa+ integration would use. Taking this further means exposing the agent as an MCP server (Streamable HTTP), so Alexa+ itself could hand off "do this on the website" tasks.
@@ -53,9 +54,10 @@ Say what you need. Alexa does it on a real web page, tells you what it's doing, 
 - *Worked well:* stream-json gave clean events for spoken narration and the activity feed, and `--resume` provided cross-turn memory for free.
 - *Needs work:* an agent sometimes picks up user-level skills with similar names (for example, a global "computer-use" skill), so the prompt has to name the project's skills explicitly.
 
-**noVNC / websockify / Web Speech API**
+**noVNC / websockify / speech**
 - noVNC in a view-only iframe was the simplest way to let users watch the agent work.
-- Speech input only works in a secure context (`localhost` or HTTPS), so remote demos need port forwarding.
+- Chrome's built-in speech recognition sends audio to Google and failed on my network with a `network` error. I replaced it with local faster-whisper on the server, which was fast enough on CPU (about 1 s per command).
+- Microphone access only works in a secure context (`localhost` or HTTPS), so remote demos need port forwarding.
 
 ## Friction log (optional; up to a 10% bonus)
 
@@ -63,7 +65,7 @@ Say what you need. Alexa does it on a real web page, tells you what it's doing, 
 |---|---|---|---|---|---|---|
 | 1 | Test an Alexa+ integration without an Echo device | Read the track docs and looked for a simulator | Expected a web simulator or test console. Found nothing that accepts an MCP server URL | High | Built a simulated Alexa+ front end | Provide a hosted Alexa+ simulator that connects to a developer's MCP endpoint |
 | 2 | Choose the right Alexa+ path for a computer-use agent | Compared the MCP, Agent Skill and simulated options in the rules | Expected guidance on which path fits which kind of project. The paths are described only briefly | Medium | Chose the simulated path | Add a decision table and one sample per path |
-| 3 | Demo voice input from a remote dev box | Opened the page from a remote host | Expected the mic to work. The browser blocks speech recognition outside secure contexts | Medium | SSH port forwarding to localhost | Note secure-context requirements in the simulation-path docs |
+| 3 | Voice input for the simulated Alexa+ | Used the browser's Web Speech API through a port-forwarded localhost | Expected speech recognition to work. Chrome returned a `network` error because its recognizer calls Google's cloud | High | Recorded audio with MediaRecorder and transcribed locally with faster-whisper | Provide an Alexa+ speech or simulator endpoint that simulation-path builders can call for speech recognition and text-to-speech |
 | 4 | Make the agent use the project's skills | Ran the headless agent with project skills | Expected project skills to take priority. The agent considered a similarly named global skill | Low | Named the project skills explicitly in the prompt | Document skill precedence or allow a skills allow-list per run |
 
 ## Demo video script (under 3 minutes)

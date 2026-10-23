@@ -43,6 +43,33 @@ let busy = null;              // running child process
 
 const sh = (args) => new Promise((res) => execFile(VNC_SH, args, { cwd: ROOT }, (e, out) => res(String(out || ''))));
 
+// Local speech-to-text: one long-lived faster-whisper worker, requests answered in order.
+const STT_PY = process.env.STT_PYTHON || path.join(ROOT, '.venv/bin/python');
+const STT_DIR = path.join(RUN, 'stt'); fs.mkdirSync(STT_DIR, { recursive: true });
+let stt = null, sttQueue = [], sttN = 0;
+function startStt() {
+  stt = spawn(STT_PY, [path.join(__dirname, 'stt_worker.py')], { cwd: ROOT });
+  let buf = '';
+  stt.stdout.on('data', (d) => {
+    buf += d; let nl;
+    while ((nl = buf.indexOf('\n')) >= 0) {
+      const line = buf.slice(0, nl); buf = buf.slice(nl + 1);
+      let msg; try { msg = JSON.parse(line); } catch { continue; }
+      if (msg.ready) { console.log('speech-to-text ready'); continue; }
+      const job = sttQueue.shift(); if (job) job(msg);
+    }
+  });
+  stt.stderr.on('data', () => {});   // onnxruntime chatter
+  stt.on('close', () => { stt = null; sttQueue.splice(0).forEach((j) => j({ error: 'speech worker stopped' })); });
+}
+function transcribe(audio) {
+  if (!stt) startStt();
+  const file = path.join(STT_DIR, `rec${++sttN % 20}.webm`);
+  fs.writeFileSync(file, audio);
+  return new Promise((res) => { sttQueue.push(res); stt.stdin.write(file + '\n'); });
+}
+if (fs.existsSync(STT_PY)) startStt(); else console.warn(`no ${STT_PY}: voice input disabled (see README)`);
+
 async function ensureDesktop(send) {
   if ((await sh(['status'])).includes('up') && (await sh(['status'])).includes('noVNC http')) return;
   send({ type: 'status', text: 'Starting the desktop…' });
@@ -116,6 +143,14 @@ const server = http.createServer((req, res) => {
   if (req.method === 'POST' && url.pathname === '/api/ask') {
     let body = ''; req.on('data', (d) => (body += d));
     return req.on('end', () => { let t = ''; try { t = JSON.parse(body).text; } catch {} ask(String(t || '').trim(), res); });
+  }
+  if (req.method === 'POST' && url.pathname === '/api/stt') {
+    const chunks = []; req.on('data', (d) => chunks.push(d));
+    return req.on('end', async () => {
+      res.setHeader('Content-Type', 'application/json');
+      if (!fs.existsSync(STT_PY)) return res.end('{"error":"speech-to-text not installed"}');
+      res.end(JSON.stringify(await transcribe(Buffer.concat(chunks))));
+    });
   }
   if (req.method === 'POST' && url.pathname === '/api/reset') {
     session = null; fs.rmSync(SESSION_FILE, { force: true });
