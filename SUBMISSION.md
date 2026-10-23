@@ -18,7 +18,7 @@ Say what you need. Alexa does it on a real web page, tells you what it's doing, 
 
 **The problem.** Voice assistants are good at things that have an API. Much of daily life doesn't: refilling a prescription, rescheduling an appointment or paying a utility bill usually means getting through a website. For someone who is blind, has low vision, has tremors, or is an older adult whose caretaker isn't around, that website is a wall.
 
-**What it does.** Hands-Free Helper is a simulated Alexa+ experience. You speak a request, such as "Alexa, refill my blood pressure medication at Maple Street Pharmacy." An AI agent then carries it out on a real browser in a virtual desktop, and the desktop is shown live next to the conversation.
+**What it does.** Hands-Free Helper is a simulated Alexa+ experience. You speak a request, such as "Alexa, refill my blood pressure medication at Maple Street Pharmacy." An AI agent then carries it out in Alexa's own browser in the cloud (nothing runs on the user's computer), shown live next to the conversation. This mirrors how Amazon describes Alexa+ browsing the web on its own to finish tasks.
 - **Narration:** Alexa reads out each milestone ("I'm signed in and found your Lisinopril").
 - **Confirmation:** before anything that can't be undone, Alexa stops and asks: "Your refill is set for pickup tomorrow at 10 AM, $4 copay. Should I place the order?" Nothing is submitted until you say yes.
 - **Memory:** the conversation persists. "When is it ready again?" is answered from memory. Asking for the same refill twice gets "I already ordered that, do you want another?", even after the server restarts.

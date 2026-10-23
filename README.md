@@ -4,7 +4,7 @@
 
 Many websites are hard to use for people who are blind, have low vision, have tremors or are elderly. Many tasks still have no API, voice skill or MCP server, only a web form.
 
-Hands-Free Helper lets you **say what you need**. An AI agent then does the task in a real web browser, and you can watch it work. Alexa:
+Hands-Free Helper lets you **say what you need**. An AI agent then does the task in **Alexa's own browser in the cloud**, and you can watch it work. Nothing runs on your computer. Alexa:
 - **narrates** each milestone out loud
 - **stops and asks for your spoken "yes"** before it submits, buys or sends anything
 - **remembers the conversation**, so follow-ups like "when is it ready again?" work, even after a restart
@@ -28,8 +28,8 @@ Browser page (localhost:8780)                     app/server.js (Node, no depend
  │    Whisper STT), TTS replies  │  say/activity/ │   --resume <session>  (memory)       │
  │  • live activity feed         │  result events │ starts the desktop + Chrome on demand│
  │  • yes/no confirmation cards  │                └──────────────┬───────────────────────┘
- │ noVNC view of the agent's     │                               │ Agent Skills
- │ desktop (:8767, view-only)    │ ◀── watch ── Xvfb/XFCE desktop ◀┤ vnc-desktop: start/stop/status
+ │ live view of Alexa's cloud    │                               │ Agent Skills
+ │ browser (view-only)           │ ◀── watch ── kiosk Chrome, Xvfb◀┤ vnc-desktop: start/stop/status
  └───────────────────────────────┘              (display :37)     └ computer-use: shot/click/type/key
 ```
 
@@ -45,7 +45,7 @@ Browser page (localhost:8780)                     app/server.js (Node, no depend
   - a text box as fallback
   - live activity lines ("Clicking at (640, 410)")
   - confirmation cards with Yes/No buttons; after asking, it listens for your answer automatically
-  - the agent's desktop, embedded live and view-only
+  - Alexa's cloud browser, shown live in a device-style frame. noVNC's RFB client draws straight into the page (view-only, no noVNC interface), and Chrome runs in kiosk mode, so viewers see only the website.
 - **The demo site** ([app/demo-site/](app/demo-site/)) is a made-up local pharmacy ("Maple Street Pharmacy"). The demo behaves the same every run and never places a real order.
 
 ## Run it
@@ -66,6 +66,9 @@ ssh -L 8780:localhost:8780 -L 8767:localhost:8767 <host>
 
 Settings (environment variables): `PORT` (default 8780), `VNC_DISPLAY` (:37), `VNC_WEB_PORT` (8767), `CLAUDE_MODEL`, `STT_MODEL` (`base.en`; use `small.en` for better accuracy).
 To control the desktop by hand: `.claude/skills/vnc-desktop/scripts/vnc.sh start|stop|status`.
+
+## How it compares to real Alexa+
+Amazon has said Alexa+ can browse websites on its own to finish tasks (Amazon Nova Act). This prototype simulates that: the agent works in a separate browser, the user watches it live, and it asks for a spoken yes before anything is submitted. Here the "cloud browser" is a virtual display (Xvfb) on the server. In production it would be a hosted browser session.
 
 ## Safety
 - **Confirmation step:** the agent prepares everything and then has to get your explicit "yes" in the conversation before any submit, purchase or send. This rule is in both the agent definition and the voice rules.
