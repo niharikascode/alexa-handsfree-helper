@@ -87,8 +87,6 @@ Say what you need. Alexa does it on a real web page, tells you what it's doing, 
 
 ## Demo video script (under 3 minutes)
 Recorded in one take on http://localhost:8780 (click **New conversation** first). Speed up only the silent clicking.
-1. **0:00–0:15** Voiceover: "Most websites are hard to use if you can't see the screen. This is Hands-Free Helper, a simulated Alexa+ that uses real websites for you, out loud."
-2. **0:15–0:50** "What side effects should I watch for with my Lisinopril?" → MedlinePlus (NIH) side-effects section on screen, read back in plain language.
-3. **0:50–1:30** "Can I borrow a large-print copy of Lessons in Chemistry?" → Seattle Public Library catalog: Large Print, Available. Alexa asks "Would you like me to place a hold?" → "No, not now." → nothing reserved (the confirmation safeguard).
-4. **1:30–2:20** The big one: "My daughter sent my medication list. Use it to find me the cheapest Medicare drug plan for next year." → opens the PDF and reads the 3 medicines aloud → Medicare Plan Finder: ZIP, Part D, adds all 3 medicines with the right doses (about 30 steps) → asks "Which pharmacy do you use?" → "The first one." → reads the 3 cheapest 2027 plans with yearly costs → asks about enrolling → "No, I'll check with my daughter first." → nothing signed up.
-6. **2:20–2:55** Voiceover: "The page is an MCP client of a self-hosted MCP server (spec 2025-11-25), speech is transcribed on the machine, and it never books, buys or submits without your yes." Point at "connected to MCP server · 3 tools" and open "Every step Alexa took" to show the `tools/call` lines.
+1. **0:00–0:15** Intro: Jordan, 72, low vision; Hands-Free Helper is a simulated Alexa+ that uses real websites out loud and asks before committing.
+2. **0:15–2:15** "My daughter sent my medication list. Use it to find me the cheapest Medicare drug plan for next year." → reads the PDF aloud → Medicare Plan Finder: ZIP, Part D, all 3 medicines with the right doses → "Which pharmacy do you use?" → "The first one." → reads the 3 cheapest 2027 plans with yearly costs → asks about enrolling → "No, I'll check with my daughter first." → nothing signed up.
+3. **2:15–2:50** How it's built: MCP client and self-hosted MCP server (spec 2025-11-25, Streamable HTTP), Agent Skills, speech transcribed on the machine, and a yes required before anything is committed.
