@@ -74,13 +74,7 @@ Say what you need. Alexa does it on a real web page, tells you what it's doing, 
 - Microphone access only works in a secure context (`localhost` or HTTPS), so remote demos need port forwarding.
 
 ## Friction log (optional; up to a 10% bonus)
-
-| # | Task | Steps | Expected vs actual | Severity | Workaround | Suggestion |
-|---|---|---|---|---|---|---|
-| 1 | Test an Alexa+ integration without an Echo device | Read the track docs and looked for a simulator | Expected a web simulator or test console. Found nothing that accepts an MCP server URL | High | Built a simulated Alexa+ front end | Provide a hosted Alexa+ simulator that connects to a developer's MCP endpoint |
-| 2 | Choose the right Alexa+ path for a computer-use agent | Compared the MCP, Agent Skill and simulated options in the rules | Expected guidance on which path fits which kind of project. The paths are described only briefly | Medium | Chose the simulated path | Add a decision table and one sample per path |
-| 3 | Voice input for the simulated Alexa+ | Used the browser's Web Speech API through a port-forwarded localhost | Expected speech recognition to work. Chrome returned a `network` error because its recognizer calls Google's cloud | High | Recorded audio with MediaRecorder and transcribed locally with faster-whisper | Provide an Alexa+ speech or simulator endpoint that simulation-path builders can call for speech recognition and text-to-speech |
-| 4 | Make the agent use the project's skills | Ran the headless agent with project skills | Expected project skills to take priority. The agent considered a similarly named global skill | Low | Named the project skills explicitly in the prompt | Document skill precedence or allow a skills allow-list per run |
+See [FRICTION_LOG.md](FRICTION_LOG.md): https://github.com/niharikascode/alexa-handsfree-helper/blob/main/FRICTION_LOG.md
 
 ## Pitch line (vs. Amazon Nova Act)
 "Nova Act is how Alexa+ can work a website. Hands-Free Helper is about the person on the other end: someone who can't see the screen hears every step, sees it in large captions, and approves each final action by voice. It's exposed as a standard MCP server, so any assistant, including Alexa+, could hand it a task."
