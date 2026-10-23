@@ -72,6 +72,7 @@ function createMcpHandler({ runAgent, resetConversation }) {
   async function streamTool(res, msg, text) {
     res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', Connection: 'keep-alive' });
     const out = (m) => res.write(`event: message\ndata: ${JSON.stringify(m)}\n\n`);
+    const keepAlive = setInterval(() => res.write(': keep-alive\n\n'), 10000);   // proxies drop idle streams
     const token = msg.params?._meta?.progressToken;
     const narration = [], steps = [];
     let n = 0;
@@ -93,6 +94,7 @@ function createMcpHandler({ runAgent, resetConversation }) {
     } catch (e) {
       result = { content: [{ type: 'text', text: e.message }], isError: true };
     }
+    clearInterval(keepAlive);
     out(rpcResult(msg.id, result)); res.end();
   }
 

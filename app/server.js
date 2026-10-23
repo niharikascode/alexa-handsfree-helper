@@ -149,9 +149,16 @@ function describe(tool) {
 
 // Run one agent turn. `send` receives {type: status|say|activity|result|error, text}; resolves with
 // the agent's final message. Shared by the plain SSE endpoint and the MCP server.
-async function runAgent(text, send) {
-  if (busy) { send({ type: 'error', text: "I'm still working on the last request." }); return { busy: true, last: '' }; }
-  await ensureDesktop(send);
+// Every event of the current run is also kept here, so a page whose stream stalls (e.g. behind a port
+// forwarder) can catch up with GET /api/events?since=N.
+let runLog = { run: 0, events: [], done: true };
+
+async function runAgent(text, sendOut) {
+  if (busy) { sendOut({ type: 'error', text: "I'm still working on the last request." }); return { busy: true, last: '' }; }
+  runLog = { run: runLog.run + 1, events: [], done: false };
+  const log = runLog;
+  const send = (ev) => { ev.seq = log.events.length; log.events.push(ev); sendOut(ev); };
+  try { await ensureDesktop(send); } catch (e) { send({ type: 'error', text: e.message }); log.done = true; throw e; }
   const args = ['-p', session ? text : `${VOICE_RULES}\n\nThe user says: "${text}"`,
     '--agent', 'vnc-agent', '--output-format', 'stream-json', '--verbose', '--allowedTools', 'Bash Read'];
   if (session) args.push('--resume', session);
@@ -183,6 +190,7 @@ async function runAgent(text, send) {
     busy = null;
     // e.g. a usage limit: the agent's own last words explain it better than an exit code
     if (code) send({ type: 'error', text: /limit|resets/i.test(last) ? `The assistant is unavailable right now: ${last}` : `Agent exited with code ${code}` });
+    log.done = true;
     resolve({ code, last });
   }));
 }
@@ -221,6 +229,11 @@ const server = http.createServer((req, res) => {
   if (req.method === 'POST' && url.pathname === '/api/stop') {
     if (busy) busy.kill('SIGINT');
     return res.end('{"ok":true}');
+  }
+  if (url.pathname === '/api/events') {
+    const since = Math.max(0, +url.searchParams.get('since') || 0);
+    res.setHeader('Content-Type', 'application/json'); res.setHeader('Cache-Control', 'no-store');
+    return res.end(JSON.stringify({ run: runLog.run, done: runLog.done, events: runLog.events.slice(since) }));
   }
   if (url.pathname === '/api/config') {
     res.setHeader('Content-Type', 'application/json');

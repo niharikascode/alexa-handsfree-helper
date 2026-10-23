@@ -217,13 +217,20 @@ function parse(text) {
 const synth = window.speechSynthesis; let speakQ = Promise.resolve();
 function speak(text) {
   if (!synth || !text) return speakQ;
-  speakQ = speakQ.then(() => new Promise(res => {
-    const u = new SpeechSynthesisUtterance(text.replace(/[*_`#]/g, ''));
-    const v = synth.getVoices().find(v => /Samantha|Google US English|Jenny|Aria|Female/i.test(v.name)); if (v) u.voice = v;
-    u.rate = 1.05; u.onend = u.onerror = res;
-    if (!running && document.body.dataset.state === 'idle') setState('speaking');
-    synth.speak(u);
-  }));
+  // Sentence by sentence: Chrome cuts off utterances longer than ~15 s and then never fires onend.
+  const parts = text.replace(/[*_`#]/g, '').match(/[^.!?]+[.!?]*\s*/g) || [text];
+  for (const part of parts) {
+    speakQ = speakQ.then(() => new Promise(res => {
+      const u = new SpeechSynthesisUtterance(part.trim());
+      const v = synth.getVoices().find(v => /Samantha|Google US English|Jenny|Aria|Female/i.test(v.name)); if (v) u.voice = v;
+      u.rate = 1.05;
+      // never wait longer than the sentence could take, in case onend doesn't fire
+      const guard = setTimeout(res, 1500 + part.split(/\s+/).length * 450);
+      u.onend = u.onerror = () => { clearTimeout(guard); res(); };
+      if (!running && document.body.dataset.state === 'idle') setState('speaking');
+      synth.speak(u);
+    }));
+  }
   return speakQ;
 }
 
@@ -280,10 +287,10 @@ document.addEventListener('keydown', (e) => { if (e.code === 'Space' && !/INPUT|
 // --- MCP client: the page talks to the helper's MCP server (Streamable HTTP, 2025-11-25) ---
 const mcp = {
   sid: null, version: '2025-11-25', id: 0,
-  async post(msg, onNote) {
+  async post(msg, onNote, signal) {
     const headers = { 'Content-Type': 'application/json', Accept: 'application/json, text/event-stream' };
     if (this.sid) { headers['Mcp-Session-Id'] = this.sid; headers['MCP-Protocol-Version'] = this.version; }
-    const r = await fetch('/mcp', { method: 'POST', headers, body: JSON.stringify(msg) });
+    const r = await fetch('/mcp', { method: 'POST', headers, body: JSON.stringify(msg), signal });
     if (r.status === 404 && this.sid) { this.sid = null; await this.init(); return this.post(msg, onNote); }  // session expired
     if (r.headers.get('Mcp-Session-Id')) this.sid = r.headers.get('Mcp-Session-Id');
     if (r.status === 202) return null;
@@ -310,9 +317,9 @@ const mcp = {
     const tools = (await this.post({ jsonrpc: '2.0', id: ++this.id, method: 'tools/list' })).result.tools;
     return { server: r.result.serverInfo, tools: tools.map(t => t.name) };
   },
-  async call(name, args, onNote) {
+  async call(name, args, onNote, signal) {
     const id = ++this.id;
-    const r = await this.post({ jsonrpc: '2.0', id, method: 'tools/call', params: { name, arguments: args, _meta: { progressToken: 'p' + id } } }, onNote);
+    const r = await this.post({ jsonrpc: '2.0', id, method: 'tools/call', params: { name, arguments: args, _meta: { progressToken: 'p' + id } } }, onNote, signal);
     if (!r || r.error) throw new Error(r ? r.error.message : 'no response');
     return r.result;
   }
@@ -337,9 +344,9 @@ async function send(text) {
     : ['run_web_task', { request: text }];
   awaitingOk = false;
   let lastTag = null;
-  const onNote = (m) => {
-    if (m.method !== 'notifications/message') return;
-    const ev = m.params.data;
+  const seen = new Set();
+  const handle = (ev) => {
+    if (ev.seq !== undefined) { if (seen.has(ev.seq)) return; seen.add(ev.seq); }
     if (ev.type === 'status') { stateEl.textContent = ev.text.replace('…', ''); if (ev.text.startsWith('Working')) loadVnc(); }
     if (ev.type === 'activity') step(ev.text);
     if (ev.type === 'say') {
@@ -349,17 +356,37 @@ async function send(text) {
     }
     if (ev.type === 'error') { caption(ev.text); remember('Alexa', ev.text); speak(ev.text); lastTag = 'BLOCKED'; }
   };
+  const onNote = (m) => { if (m.method === 'notifications/message') handle(m.params.data); };
+  // Fallback for stalled streams: poll the server's event log once a second and finish from it.
+  const abort = new AbortController();
+  let base = 0, polledDone = false, pollStop = false;
+  try { base = (await (await fetch('/api/events?since=1e9')).json()).run; } catch {}
+  const poll = (async () => {
+    while (!pollStop) {
+      await new Promise((r) => setTimeout(r, 1000));
+      try {
+        const r = await (await fetch('/api/events?since=0', { cache: 'no-store' })).json();
+        if (r.run <= base) continue;
+        r.events.forEach(handle);
+        if (r.done) { polledDone = true; setTimeout(() => abort.abort(), 3000); return; }   // give the stream 3 s to deliver the result
+      } catch {}
+    }
+  })();
   try {
     await mcpReady;
     step(`🔌 MCP tools/call ${tool}`);
-    const res = await mcp.call(tool, args, onNote);
+    const res = await mcp.call(tool, args, onNote, abort.signal);
     const st = res.structuredContent && res.structuredContent.status;
     if (!lastTag && st) { lastTag = { needs_confirmation: 'ASK', needs_input: 'NEED', done: 'DONE', blocked: 'BLOCKED', busy: 'BLOCKED' }[st];
       outcome(lastTag, res.structuredContent.speech); speak(res.structuredContent.speech); }
     if (st === 'needs_input') lastTag = 'NEED';
-  } catch (e) { caption('The connection to the helper dropped. Check that the server is running.'); lastTag = 'BLOCKED'; }
+  } catch (e) {
+    if (!polledDone) { caption('The connection to the helper dropped. Check that the server is running.'); lastTag = 'BLOCKED'; }
+  }
+  pollStop = true; await poll;
   running = false; clearInterval(tick);
   $('now').innerHTML = '';
+  setState('speaking');   // Alexa may still be reading the answer
   await speakQ;
   setState({ ASK: 'ask', NEED: 'ask', DONE: 'done', BLOCKED: 'blocked' }[lastTag] || 'idle',
     lastTag === 'NEED' ? 'Waiting for your answer' : undefined);
