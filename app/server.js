@@ -3,6 +3,7 @@
 // POST /api/ask {text} is a plain Server-Sent Events equivalent for scripts.
 // Node built-ins only: `node app/server.js`, then open http://localhost:8780
 const http = require('http');
+const net = require('net');
 const fs = require('fs');
 const path = require('path');
 const { spawn, execFile } = require('child_process');
@@ -251,5 +252,18 @@ const server = http.createServer((req, res) => {
     res.setHeader('Content-Type', MIME[path.extname(file)] || 'application/octet-stream');
     res.end(data);
   });
+});
+// The live view's WebSocket goes through this same port (/websockify -> noVNC's websockify), so a single
+// forwarded port (8780) is enough to use the page from another machine.
+server.on('upgrade', (req, socket, head) => {
+  if (!req.url.startsWith('/websockify')) return socket.destroy();
+  const up = net.connect(+VNC_WEB_PORT, '127.0.0.1', () => {
+    const headers = Object.entries(req.headers).map(([k, v]) => `${k}: ${v}`).join('\r\n');
+    up.write(`${req.method} /websockify HTTP/1.1\r\n${headers}\r\n\r\n`);
+    if (head && head.length) up.write(head);
+    socket.pipe(up).pipe(socket);
+  });
+  const close = () => { socket.destroy(); up.destroy(); };
+  up.on('error', close); socket.on('error', close);
 });
 server.listen(PORT, '127.0.0.1', () => console.log(`Alexa+ Hands-Free Helper: http://localhost:${PORT}`));

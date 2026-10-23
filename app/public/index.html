@@ -178,7 +178,7 @@ async function loadVnc() {
   if (vncLoaded) return; vncLoaded = true;
   const { default: RFB } = await import('/novnc/core/rfb.js');
   const connect = () => {
-    const rfb = new RFB($('vnc'), `ws://${location.hostname}:${cfg.vncWebPort}/websockify`);
+    const rfb = new RFB($('vnc'), `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/websockify`);   // same port as the page
     rfb.viewOnly = true; rfb.scaleViewport = true; rfb.background = 'transparent';
     rfb.addEventListener('connect', () => { $('empty').hidden = true; $('live').textContent = 'live'; $('live').classList.add('on'); });
     rfb.addEventListener('disconnect', () => { $('live').textContent = 'reconnecting'; $('live').classList.remove('on'); setTimeout(connect, 1500); });
