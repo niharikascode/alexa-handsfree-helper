@@ -126,7 +126,7 @@ body:not([data-state=idle]) .frame{box-shadow:0 0 0 16px #1A2129,0 0 0 19px var(
   <section class="talk" aria-label="Conversation with Alexa">
     <div class="lightbar" aria-hidden="true"></div>
     <div class="bar">
-      <h1>Hands-Free Helper<span class="sim">simulated Alexa+</span></h1><span class="sp"></span>
+      <h1>Hands-Free Helper<span class="sim">simulated Alexa+ · <span id="mcpState">connecting to MCP server…</span></span></h1><span class="sp"></span>
       <button class="quiet" id="stop" hidden>Stop</button>
       <button class="quiet" id="reset">New conversation</button>
     </div>
@@ -274,39 +274,91 @@ async function listen(auto = false) {
 ring.onclick = () => rec ? rec.stop() : listen();
 document.addEventListener('keydown', (e) => { if (e.code === 'Space' && !/INPUT|BUTTON/.test(document.activeElement.tagName)) { e.preventDefault(); ring.click(); } });
 
+// --- MCP client: the page talks to the helper's MCP server (Streamable HTTP, 2025-11-25) ---
+const mcp = {
+  sid: null, version: '2025-11-25', id: 0,
+  async post(msg, onNote) {
+    const headers = { 'Content-Type': 'application/json', Accept: 'application/json, text/event-stream' };
+    if (this.sid) { headers['Mcp-Session-Id'] = this.sid; headers['MCP-Protocol-Version'] = this.version; }
+    const r = await fetch('/mcp', { method: 'POST', headers, body: JSON.stringify(msg) });
+    if (r.status === 404 && this.sid) { this.sid = null; await this.init(); return this.post(msg, onNote); }  // session expired
+    if (r.headers.get('Mcp-Session-Id')) this.sid = r.headers.get('Mcp-Session-Id');
+    if (r.status === 202) return null;
+    if (!(r.headers.get('Content-Type') || '').includes('text/event-stream')) return r.json();
+    // SSE: notifications first, then the response to our request
+    const reader = r.body.getReader(), dec = new TextDecoder(); let buf = '', reply = null;
+    for (;;) {
+      const { value, done } = await reader.read(); if (done) break;
+      buf += dec.decode(value, { stream: true });
+      let i; while ((i = buf.indexOf('\n\n')) >= 0) {
+        const data = buf.slice(0, i).split('\n').filter(l => l.startsWith('data:')).map(l => l.slice(5).trim()).join('');
+        buf = buf.slice(i + 2); if (!data) continue;
+        const m = JSON.parse(data);
+        if (m.method) onNote && onNote(m); else if (m.id === msg.id) reply = m;
+      }
+    }
+    return reply;
+  },
+  async init() {
+    const r = await this.post({ jsonrpc: '2.0', id: ++this.id, method: 'initialize', params: {
+      protocolVersion: this.version, capabilities: {}, clientInfo: { name: 'alexa-plus-simulator', version: '1.0.0' } } });
+    this.version = r.result.protocolVersion;
+    await this.post({ jsonrpc: '2.0', method: 'notifications/initialized' });
+    const tools = (await this.post({ jsonrpc: '2.0', id: ++this.id, method: 'tools/list' })).result.tools;
+    return { server: r.result.serverInfo, tools: tools.map(t => t.name) };
+  },
+  async call(name, args, onNote) {
+    const id = ++this.id;
+    const r = await this.post({ jsonrpc: '2.0', id, method: 'tools/call', params: { name, arguments: args, _meta: { progressToken: 'p' + id } } }, onNote);
+    if (!r || r.error) throw new Error(r ? r.error.message : 'no response');
+    return r.result;
+  }
+};
+const mcpReady = mcp.init().then((info) => {
+  $('mcpState').textContent = `connected to MCP server · ${info.tools.length} tools`;
+  return info;
+}).catch(() => { $('mcpState').textContent = 'MCP server unreachable'; });
+
 // --- talk to the agent ---
+let awaitingOk = false;
+const YES = /^(yes|yeah|yep|sure|ok(ay)?|go ahead|do it|please do|place it)\b/i, NO = /^(no|nope|stop|don'?t|cancel|wait)\b/i;
 async function send(text) {
   if (running || !text) return;
   $('hints').hidden = true; $('result').innerHTML = '';
   $('heard').textContent = '“' + text + '”'; remember('You', text);
   running = true; setState('thinking'); caption('On it.');
   t0 = Date.now(); tick = setInterval(() => $('timer').textContent = Math.round((Date.now() - t0) / 1000) + ' s', 500);
+  // after a question, a plain yes/no becomes confirm_action; anything else is a new request
+  const [tool, args] = awaitingOk && YES.test(text) ? ['confirm_action', { approve: true }]
+    : awaitingOk && NO.test(text) ? ['confirm_action', { approve: false, note: text }]
+    : ['run_web_task', { request: text }];
+  awaitingOk = false;
   let lastTag = null;
-  try {
-    const r = await fetch('/api/ask', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text }) });
-    const reader = r.body.getReader(), dec = new TextDecoder(); let buf = '';
-    for (;;) {
-      const { value, done } = await reader.read(); if (done) break;
-      buf += dec.decode(value, { stream: true });
-      let i; while ((i = buf.indexOf('\n\n')) >= 0) {
-        const chunk = buf.slice(0, i); buf = buf.slice(i + 2);
-        if (!chunk.startsWith('data: ')) continue;
-        const ev = JSON.parse(chunk.slice(6));
-        if (ev.type === 'status') { stateEl.textContent = ev.text.replace('…', ''); if (ev.text.startsWith('Working')) loadVnc(); }
-        if (ev.type === 'activity') step(ev.text);
-        if (ev.type === 'say') {
-          const p = parse(ev.text);
-          if (p.body) { caption(p.body); remember('Alexa', p.body); speak(p.body); }
-          if (p.tag) { outcome(p.tag, p.tagText); remember('Alexa', p.tagText); speak(p.tagText); lastTag = p.tag; }
-        }
-        if (ev.type === 'error') { caption(ev.text); remember('Alexa', ev.text); speak(ev.text); lastTag = 'BLOCKED'; }
-      }
+  const onNote = (m) => {
+    if (m.method !== 'notifications/message') return;
+    const ev = m.params.data;
+    if (ev.type === 'status') { stateEl.textContent = ev.text.replace('…', ''); if (ev.text.startsWith('Working')) loadVnc(); }
+    if (ev.type === 'activity') step(ev.text);
+    if (ev.type === 'say') {
+      const p = parse(ev.text);
+      if (p.body) { caption(p.body); remember('Alexa', p.body); speak(p.body); }
+      if (p.tag) { outcome(p.tag, p.tagText); remember('Alexa', p.tagText); speak(p.tagText); lastTag = p.tag; }
     }
+    if (ev.type === 'error') { caption(ev.text); remember('Alexa', ev.text); speak(ev.text); lastTag = 'BLOCKED'; }
+  };
+  try {
+    await mcpReady;
+    step(`🔌 MCP tools/call ${tool}`);
+    const res = await mcp.call(tool, args, onNote);
+    const st = res.structuredContent && res.structuredContent.status;
+    if (!lastTag && st) { lastTag = { needs_confirmation: 'ASK', done: 'DONE', blocked: 'BLOCKED', busy: 'BLOCKED' }[st];
+      outcome(lastTag, res.structuredContent.speech); speak(res.structuredContent.speech); }
   } catch (e) { caption('The connection to the helper dropped. Check that the server is running.'); lastTag = 'BLOCKED'; }
   running = false; clearInterval(tick);
   $('now').innerHTML = '';
   await speakQ;
   setState({ ASK: 'ask', DONE: 'done', BLOCKED: 'blocked' }[lastTag] || 'idle');
+  awaitingOk = lastTag === 'ASK';
   // hands-free: wait for the spoken yes/no, after a beat so the mic doesn't hear Alexa's own voice
   if (lastTag === 'ASK') setTimeout(() => listen(true), 500);
 }
@@ -316,8 +368,8 @@ function outcome(tag, text) {
   const box = $('result');
   if (tag === 'ASK') {
     box.innerHTML = '<div class="decision"><p>Say “yes” or “no”, or choose:</p><div class="row"><button class="yes">Yes, go ahead</button><button class="no">No, stop</button></div></div>';
-    box.querySelector('.yes').onclick = () => { rec && rec.abort(); send('Yes, go ahead.'); };
-    box.querySelector('.no').onclick = () => { rec && rec.abort(); send("No, don't do that."); };
+    box.querySelector('.yes').onclick = () => { rec && rec.abort(); send('Yes, go ahead.'); };   // → confirm_action
+    box.querySelector('.no').onclick = () => { rec && rec.abort(); send('No, stop.'); };
   } else {
     box.innerHTML = `<div class="outcome ${tag === 'BLOCKED' ? 'blocked' : ''}"></div>`;
     box.firstChild.textContent = tag === 'DONE' ? 'Finished and checked on screen.' : 'Stopped before finishing. Nothing was submitted.';
@@ -327,7 +379,7 @@ function outcome(tag, text) {
 $('form').onsubmit = (e) => { e.preventDefault(); const t = $('text').value.trim(); $('text').value = ''; send(t); };
 document.querySelectorAll('.hint').forEach(b => b.onclick = () => send(b.textContent));
 $('reset').onclick = async () => {
-  await fetch('/api/reset', { method: 'POST' });
+  await mcpReady; await mcp.call('reset_conversation', {}); awaitingOk = false;
   $('history').innerHTML = ''; $('steps').innerHTML = ''; $('result').innerHTML = ''; $('heard').textContent = ''; stepCount = 0;
   $('stepsSum').textContent = 'Every step Alexa took'; $('hints').hidden = false; $('timer').textContent = '';
   const c = $('caption'); c.classList.add('empty'); c.textContent = 'New conversation. What can I do for you?'; setState('idle');

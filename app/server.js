@@ -1,10 +1,12 @@
 // Alexa+ Hands-Free Helper - simulated Alexa+ front end for the vnc-agent.
-// POST /api/ask {text} streams the agent's progress back as Server-Sent Events.
+// The page talks to the agent through an MCP server at /mcp (Streamable HTTP, spec 2025-11-25);
+// POST /api/ask {text} is a plain Server-Sent Events equivalent for scripts.
 // Node built-ins only: `node app/server.js`, then open http://localhost:8780
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const { spawn, execFile } = require('child_process');
+const { createMcpHandler } = require('./mcp');
 
 const ROOT = path.resolve(__dirname, '..');
 const RUN = path.join(ROOT, '_run');
@@ -115,17 +117,16 @@ function describe(tool) {
     goto: `🌐 Opening ${arg}`, scroll: `↕️ Scrolling ${arg}`, clear: '⌫ Clearing the field', wait: '⏳ Waiting' })[cmd] || `⚙️ ${cmd}`;
 }
 
-async function ask(text, res) {
-  const send = (ev) => res.write(`data: ${JSON.stringify(ev)}\n\n`);
-  res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', Connection: 'keep-alive' });
-  if (busy) { send({ type: 'error', text: "I'm still working on the last request." }); return res.end(); }
-  try { await ensureDesktop(send); } catch (e) { send({ type: 'error', text: e.message }); return res.end(); }
-
+// Run one agent turn. `send` receives {type: status|say|activity|result|error, text}; resolves with
+// the agent's final message. Shared by the plain SSE endpoint and the MCP server.
+async function runAgent(text, send) {
+  if (busy) { send({ type: 'error', text: "I'm still working on the last request." }); return { busy: true, last: '' }; }
+  await ensureDesktop(send);
   const args = ['-p', session ? text : `${VOICE_RULES}\n\nThe user says: "${text}"`,
     '--agent', 'vnc-agent', '--output-format', 'stream-json', '--verbose', '--allowedTools', 'Bash Read'];
   if (session) args.push('--resume', session);
   if (process.env.CLAUDE_MODEL) args.push('--model', process.env.CLAUDE_MODEL);
-  const child = busy = spawn('claude', args, { cwd: ROOT, env: { ...process.env, TZ, VNC_DISPLAY: DISPLAY } });
+  const child = busy = spawn('claude', args, { cwd: ROOT, env: { ...process.env, TZ, VNC_DISPLAY: DISPLAY }, stdio: ['ignore', 'pipe', 'pipe'] });
   send({ type: 'status', text: 'Working on it…' });
 
   let buf = '', last = '';
@@ -144,17 +145,29 @@ async function ask(text, res) {
           if (b.type === 'tool_use') send({ type: 'activity', text: describe(b) });
         }
       }
-      if (ev.type === 'result') send({ type: 'result', text: ev.result || last, cost: ev.total_cost_usd, ms: ev.duration_ms });
+      if (ev.type === 'result') { last = ev.result || last; send({ type: 'result', text: last, cost: ev.total_cost_usd, ms: ev.duration_ms }); }
     }
   });
   child.stderr.on('data', (d) => console.error(String(d)));
-  child.on('close', (code) => {
+  return new Promise((resolve) => child.on('close', (code) => {
     busy = null;
-    if (code) send({ type: 'error', text: `Agent exited with code ${code}` });
-    send({ type: 'end' }); res.end();
-  });
-  res.on('close', () => {});  // keep the agent running even if the tab reloads
+    // e.g. a usage limit: the agent's own last words explain it better than an exit code
+    if (code) send({ type: 'error', text: /limit|resets/i.test(last) ? `The assistant is unavailable right now: ${last}` : `Agent exited with code ${code}` });
+    resolve({ code, last });
+  }));
 }
+
+function resetConversation() { session = null; fs.rmSync(SESSION_FILE, { force: true }); }
+
+// Plain SSE endpoint (kept for scripts); the page itself talks MCP at /mcp.
+async function ask(text, res) {
+  const send = (ev) => res.write(`data: ${JSON.stringify(ev)}\n\n`);
+  res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', Connection: 'keep-alive' });
+  try { await runAgent(text, send); } catch (e) { send({ type: 'error', text: e.message }); }
+  send({ type: 'end' }); res.end();
+}
+
+const mcp = createMcpHandler({ runAgent, resetConversation });
 
 const server = http.createServer((req, res) => {
   const url = new URL(req.url, 'http://x');
@@ -170,8 +183,9 @@ const server = http.createServer((req, res) => {
       res.end(JSON.stringify(await transcribe(Buffer.concat(chunks))));
     });
   }
+  if (url.pathname === '/mcp') return mcp(req, res);
   if (req.method === 'POST' && url.pathname === '/api/reset') {
-    session = null; fs.rmSync(SESSION_FILE, { force: true });
+    resetConversation();
     return res.end('{"ok":true}');
   }
   if (req.method === 'POST' && url.pathname === '/api/stop') {

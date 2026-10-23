@@ -5,8 +5,14 @@ Paste each section into the matching Devpost field. Edit freely; it should sound
 ---
 
 ## Track and challenges
-- **Primary track:** Alexa+ (simulated Alexa+ experience path)
-- **Mini challenge:** Open Source. The repo is public under the MIT license. Fill in the contribution URL, repo URL and GitHub username on Devpost.
+- **Primary track:** Alexa+. A simulated Alexa+ experience whose front end is a real MCP client of a self-hosted MCP server (Streamable HTTP, spec 2025-11-25), built on runtime-loaded Agent Skills.
+- **Mini challenge:** Open Source, with a *separate, additional* project:
+  - **Contribution URL:** `https://github.com/<you>/vnc-computer-use-skills` (new MIT repo)
+  - **Project repository URL:** `https://github.com/<you>/alexa-handsfree-helper`
+  - **GitHub username:** `<you>`
+  - **What I did:** extracted the computer-use layer into a standalone, reusable set of Agent Skills for Claude Code: a VNC desktop you can watch and take over (`vnc-desktop`), plus a screenshot, click and type toolkit (`computer-use`) that enforces "act once, then re-screenshot to confirm", with numbered screenshots and an action audit log.
+  - **How it works:** Xvfb, XFCE, x11vnc and noVNC for the desktop; xdotool and scrot for input and capture; SKILL.md files that any Claude Code agent loads.
+  - **Why it matters:** it gives any developer a safe, observable computer-use sandbox in minutes. The voice assistant uses it as-is.
 
 ## Project name
 Hands-Free Helper: a simulated Alexa+ that uses the web for you
@@ -29,16 +35,17 @@ Say what you need. Alexa does it on a real web page, tells you what it's doing, 
   - `computer-use` is a small screenshot, click and type toolkit.
 
   The agent operates the GUI by looking at the screen: screenshot, decide, act, check.
-- **The bridge:** a Node server with no dependencies. It runs the agent headlessly, streams its events (spoken lines, actions, results) to the browser over Server-Sent Events, and keeps the session so the conversation carries across turns.
+- **The MCP server:** a self-hosted MCP server (Streamable HTTP, protocol 2025-11-25) exposes the agent as three tools: `run_web_task`, `confirm_action` and `reset_conversation`. Long-running calls stream progress and log notifications (Alexa's narration and every GUI step) before returning structured results (`status`, `speech`, `narration`, `steps`). The Alexa+ page is an MCP client of this server: `initialize`, `tools/list`, then `tools/call`. A spoken "yes" becomes `confirm_action`. The server also works with MCP Inspector and Claude Code.
+- **The bridge:** a Node server with no dependencies. It runs the agent headlessly and keeps the session, so the conversation carries across turns.
 - **Speech in:** the browser records your voice and stops automatically when you pause. A local faster-whisper model on the server transcribes it in about 1 second, with no cloud speech service. That matters for privacy, since health requests never leave the machine, and it works on networks where browser speech recognition is blocked.
 - **The front end:** one HTML page. The browser's built-in text-to-speech handles speaking. It shows a live activity feed and Yes/No confirmation cards, and after Alexa asks a question it listens for the answer automatically.
 - **The demo site:** a made-up pharmacy site, so the demo behaves the same every run and never places a real order.
 
-**Why it matters.** Most of the web will never get a voice skill or an MCP server. An agent that can use the existing GUI safely, with spoken narration and an explicit "yes" before it acts, makes the whole web reachable by voice. It's the same pattern an Alexa+ integration would use. Taking this further means exposing the agent as an MCP server (Streamable HTTP), so Alexa+ itself could hand off "do this on the website" tasks.
+**Why it matters.** Most of the web will never get a voice skill or an MCP server. An agent that can use the existing GUI safely, with spoken narration and an explicit "yes" before it acts, makes the whole web reachable by voice. It's the same pattern an Alexa+ integration would use. Because the agent is already exposed as a standard MCP server, Alexa+ itself could hand off "do this on the website" tasks to it. Next steps: run the browser agent on Amazon Nova Act with Bedrock AgentCore Browser, and connect the MCP server to Alexa+ once add-on tooling opens up.
 
 **What was built during the hackathon.**
 - **Sep 21, 2026:** the vnc-agent and its two Agent Skills.
-- **Oct 23, 2026:** the Alexa+ voice front end, the streaming bridge with session memory and the confirmation flow, the demo site, and the documentation.
+- **Oct 23, 2026:** the MCP server and the page's MCP client, the Alexa+ voice front end with local speech-to-text, session memory and the confirmation flow, the demo site, and the documentation.
 
 ## Product feedback
 
@@ -48,6 +55,11 @@ Say what you need. Alexa does it on a real web page, tells you what it's doing, 
 - *What needs work:* without an Alexa+ device or Preview access, there's no way to see an MCP server or Agent Skill running inside Alexa+. A hosted Alexa+ simulator or test console that accepts an MCP URL would make this track much easier to build for and to demo.
 - *Onboarding:* it took a while to work out which of the three paths (MCP, Agent Skill, simulated) fit a voice and computer-use project.
 - *Would I build with it again:* yes, especially once MCP servers can be tested against Alexa+ without a device.
+
+**MCP (spec 2025-11-25, Streamable HTTP)**
+- *Used for:* exposing the agent as tools, and making the Alexa+ page an MCP client.
+- *Worked well:* the spec is clear. Streaming notifications on the tools/call response fit long GUI tasks nicely, and `structuredContent` with an `outputSchema` gave the voice front end a clean status (`needs_confirmation`) to act on. MCP Inspector's CLI made checking compliance quick.
+- *Needs work:* in the Alexa+ docs, there's no public way to point a real Alexa+ (or a simulator) at a self-hosted MCP server; the FAQ confirms the tooling is partners-only. A public test console would let builders verify the real integration.
 
 **Claude Code (headless mode, subagents, Agent Skills)**
 - *Used for:* running the agent (`claude -p --agent vnc-agent --output-format stream-json --resume`).
@@ -68,9 +80,12 @@ Say what you need. Alexa does it on a real web page, tells you what it's doing, 
 | 3 | Voice input for the simulated Alexa+ | Used the browser's Web Speech API through a port-forwarded localhost | Expected speech recognition to work. Chrome returned a `network` error because its recognizer calls Google's cloud | High | Recorded audio with MediaRecorder and transcribed locally with faster-whisper | Provide an Alexa+ speech or simulator endpoint that simulation-path builders can call for speech recognition and text-to-speech |
 | 4 | Make the agent use the project's skills | Ran the headless agent with project skills | Expected project skills to take priority. The agent considered a similarly named global skill | Low | Named the project skills explicitly in the prompt | Document skill precedence or allow a skills allow-list per run |
 
+## Pitch line (vs. Amazon Nova Act)
+"Nova Act is how Alexa+ can work a website. Hands-Free Helper is about the person on the other end: someone who can't see the screen hears every step, sees it in large captions, and approves each final action by voice. It's exposed as a standard MCP server, so any assistant, including Alexa+, could hand it a task."
+
 ## Demo video script (under 3 minutes)
 1. **0:00–0:15** The problem: "Most of the web has no voice interface. For someone who can't use a screen, a pharmacy refill form is a wall."
 2. **0:15–1:30** Live demo. Say "Alexa, refill my blood pressure medication at Maple Street Pharmacy." Show the narration, the activity feed and the agent working on the desktop, ending at the confirmation question.
 3. **1:30–1:55** Say "Yes." The order is placed and the order number is read back, with the confirmation card on screen.
 4. **1:55–2:15** Ask "When is my refill ready again?" It's answered from memory. Then ask for the same refill again, and it warns that it's a duplicate.
-5. **2:15–2:45** Architecture slide (from the README), the confirmation safety rule, and what's next (the agent as an MCP server for Alexa+).
+5. **2:15–2:45** Architecture: the page is an MCP client, so show the "connected to MCP server · 3 tools" label and the `MCP tools/call run_web_task` / `confirm_action` lines in "Every step". Optionally, show the same server listed in MCP Inspector. Then the confirmation safety rule, and what's next (Nova Act and AgentCore).

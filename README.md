@@ -21,9 +21,9 @@ Hands-Free Helper lets you **say what you need**. An AI agent then does the task
 ## How it works
 
 ```
-Browser page (localhost:8780)                     app/server.js (Node, no dependencies)
- ┌───────────────────────────────┐ POST /api/ask  ┌──────────────────────────────────────┐
- │ Alexa+ panel                  │ ─────────────▶ │ claude -p --agent vnc-agent          │
+Browser page (localhost:8780)    POST /mcp        app/server.js + app/mcp.js (Node, no deps)
+ ┌───────────────────────────────┐ tools/call     ┌──────────────────────────────────────┐
+ │ Alexa+ panel (MCP client)     │ ─────────────▶ │ claude -p --agent vnc-agent          │
  │  • voice ring (mic → local    │ ◀── SSE ────── │   --output-format stream-json        │
  │    Whisper STT), TTS replies  │  say/activity/ │   --resume <session>  (memory)       │
  │  • live activity feed         │  result events │ starts the desktop + Chrome on demand│
@@ -38,6 +38,7 @@ Browser page (localhost:8780)                     app/server.js (Node, no depend
   - [computer-use](.claude/skills/computer-use/SKILL.md) is a small `xdotool`/`scrot` toolkit: screenshot, click, type, key, scroll, goto.
 
   It works by looking at the screen. It takes a screenshot, reads it, does one action, then takes another screenshot to check the result.
+- **The MCP server** ([app/mcp.js](app/mcp.js)) exposes the agent as MCP tools (see below). The page reaches the agent only through it.
 - **The voice layer** ([app/server.js](app/server.js)) adds the Alexa+ persona and rules: short spoken sentences, never confirm a final action on the user's behalf, and end with `ASK:`, `DONE:` or `BLOCKED:`. It streams the agent's events to the page and keeps the session ID on disk, so the conversation survives restarts.
 - **The Alexa+ page** ([app/public/index.html](app/public/index.html)) is one HTML file, designed for low-vision users. It uses Atkinson Hyperlegible, a typeface made by the Braille Institute for low-vision readers. A light bar in the style of an Echo device shows Alexa's state (listening, working, needs your OK, done), and Alexa's current spoken line appears as a large live caption. The page also has:
   - speech in: the page records with MediaRecorder and stops automatically when you pause. The audio goes to `POST /api/stt`, where a local **faster-whisper** model ([app/stt_worker.py](app/stt_worker.py), CPU, about 1 s per command) transcribes it. No cloud speech service is involved, so it works where Chrome's built-in recognition can't reach Google.
@@ -47,6 +48,23 @@ Browser page (localhost:8780)                     app/server.js (Node, no depend
   - confirmation cards with Yes/No buttons; after asking, it listens for your answer automatically
   - Alexa's cloud browser, shown live in a device-style frame. noVNC's RFB client draws straight into the page (view-only, no noVNC interface), and Chrome runs in kiosk mode, so viewers see only the website.
 - **The demo site** ([app/demo-site/](app/demo-site/)) is a made-up local pharmacy ("Maple Street Pharmacy"). The demo behaves the same every run and never places a real order.
+
+## MCP server (Alexa+ integration surface)
+The Alexa+ page is an **MCP client**. It talks to the helper's **self-hosted MCP server** at `http://localhost:8780/mcp` ([app/mcp.js](app/mcp.js)): **Streamable HTTP, protocol version 2025-11-25**, using the `initialize`, `tools/list` and `tools/call` requests. Long-running tool calls stream `notifications/progress` and `notifications/message` (Alexa's narration and each GUI step) before returning the result.
+
+| Tool | What it does |
+|---|---|
+| `run_web_task {request}` | Carries out a spoken request in Alexa's cloud browser. Returns `structuredContent` `{status, speech, narration, steps}`; `status` is `needs_confirmation` when everything is ready and the agent is waiting for the user's answer |
+| `confirm_action {approve, note?}` | The user's yes or no. Only `approve: true` lets the agent press the final button. Annotated `destructiveHint: true` |
+| `reset_conversation` | Starts a new conversation |
+
+Security: the server checks the `Origin` header, which protects against DNS rebinding as the transport spec requires. It listens on 127.0.0.1 only and issues an `Mcp-Session-Id` per client.
+
+Any MCP client works, not just the page:
+```bash
+npx @modelcontextprotocol/inspector --cli http://localhost:8780/mcp --transport http --method tools/list
+claude mcp add --transport http hands-free-helper http://localhost:8780/mcp   # then ask Claude to use it
+```
 
 ## Run it
 
@@ -67,8 +85,12 @@ ssh -L 8780:localhost:8780 -L 8767:localhost:8767 <host>
 Settings (environment variables): `PORT` (default 8780), `VNC_DISPLAY` (:37), `VNC_WEB_PORT` (8767), `CLAUDE_MODEL`, `STT_MODEL` (`base.en`; use `small.en` for better accuracy).
 To control the desktop by hand: `.claude/skills/vnc-desktop/scripts/vnc.sh start|stop|status`.
 
+**For judges:** the agent runs on Claude Code, so running the project yourself needs the `claude` CLI signed in, or `ANTHROPIC_API_KEY` set. The demo video shows the complete flow. The fictional pharmacy site is included, and no real accounts are used.
+
 ## How it compares to real Alexa+
 Amazon has said Alexa+ can browse websites on its own to finish tasks (Amazon Nova Act). This prototype simulates that: the agent works in a separate browser, the user watches it live, and it asks for a spoken yes before anything is submitted. Here the "cloud browser" is a virtual display (Xvfb) on the server. In production it would be a hosted browser session.
+
+**Compared with Amazon Nova Act:** Nova Act (generally available on AWS since Dec 2025) is the production service for building and running fleets of browser agents, with human-in-the-loop approval and takeover for operators. Hands-Free Helper is about the person on the other end. Someone who can't see the screen hears every step, sees it in large captions, and approves each final action by voice. The voice and approval layer works with any browser agent: this prototype drives a Claude-based agent, and moving it to Nova Act on Bedrock AgentCore is the natural next step.
 
 ## Safety
 - **Confirmation step:** the agent prepares everything and then has to get your explicit "yes" in the conversation before any submit, purchase or send. This rule is in both the agent definition and the voice rules.
@@ -78,10 +100,14 @@ Amazon has said Alexa+ can browse websites on its own to finish tasks (Amazon No
 ## What was built during the hackathon
 - **Sep 21, 2026:** the vnc-agent and its two Agent Skills (desktop and computer-use toolkit).
 - **Oct 23, 2026:**
+  - the MCP server (Streamable HTTP, 2025-11-25) and the page's MCP client
   - the Alexa+ voice front end, with local Whisper speech-to-text
   - the streaming agent bridge, with session memory and the confirmation flow
   - the demo pharmacy site
   - this repository
+
+## Related
+The two computer-use Agent Skills are also published on their own as a reusable open-source project: **vnc-computer-use-skills**.
 
 ## License
 MIT. See [LICENSE](LICENSE).
