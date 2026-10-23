@@ -13,7 +13,8 @@ const VNC_WEB_PORT = process.env.VNC_WEB_PORT || '8767';
 const DISPLAY = process.env.VNC_DISPLAY || ':37';
 const VNC_SH = path.join(ROOT, '.claude/skills/vnc-desktop/scripts/vnc.sh');
 const SESSION_FILE = path.join(RUN, 'session.json');
-const DEMO_URL = `http://localhost:${PORT}/demo-site/`;
+const DEMO_URL = `http://127.0.0.1:${PORT}/demo-site/`;
+const NOVNC_DIR = process.env.NOVNC_DIR || '/usr/share/novnc';   // noVNC's RFB client, embedded in our page
 const TZ = process.env.TZ || 'America/Los_Angeles';   // desktop clock + agent's sense of "today"
 fs.mkdirSync(RUN, { recursive: true });
 
@@ -23,7 +24,8 @@ const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.
 // The voice persona sits on top of the vnc-agent's own instructions.
 const VOICE_RULES = `You are the agent behind Alexa+, helping a user who cannot easily see or use a screen.
 They speak a request; you do it on the VNC desktop through the GUI. The desktop is already running with
-Chrome open, and the user is already watching it, so never mention URLs, ports or the desktop itself.
+Chrome open full screen (kiosk mode: no address bar or tabs; navigate by clicking on the page), and the
+user is already watching it, so never mention URLs, ports, the browser or the desktop itself.
 Voice rules:
 - Every text message you write is read aloud. Keep each to one short, friendly sentence.
 - Narrate only milestones (about 3-5 per task), e.g. "I'm signed in, looking for your prescription."
@@ -77,11 +79,23 @@ async function ensureDesktop(send) {
   await sh(['stop']);
   const out = await sh(['start']);
   if (!out.includes('up:')) throw new Error('desktop failed to start: ' + out);
+  // no "Save password?" bubble over the demo: disable the password manager in the fresh profile
+  const prefs = path.join(RUN, 'chrome', 'Default', 'Preferences');
+  if (!fs.existsSync(prefs)) {
+    fs.mkdirSync(path.dirname(prefs), { recursive: true });
+    fs.writeFileSync(prefs, JSON.stringify({ credentials_enable_service: false, profile: { password_manager_enabled: false } }));
+  }
   spawn('google-chrome', ['--no-sandbox', '--test-type', '--no-first-run', '--no-default-browser-check',
-    '--start-maximized', '--disable-features=Translate', `--user-data-dir=${path.join(RUN, 'chrome')}`, DEMO_URL],
+    '--kiosk', '--no-proxy-server', '--disable-features=Translate', '--noerrdialogs', '--disable-session-crashed-bubble', `--user-data-dir=${path.join(RUN, 'chrome')}`, DEMO_URL],
     { env: { ...process.env, DISPLAY, TZ, HOME: path.join(RUN, 'home') }, detached: true, stdio: 'ignore' }).unref();
   send({ type: 'status', text: 'Opening the browser…' });
-  await new Promise((r) => setTimeout(r, 8000));
+  // a fresh Chrome can take ~20 s before its first page paints; wait for the real page title
+  for (let i = 0; i < 40; i++) {
+    await new Promise((r) => setTimeout(r, 1000));
+    const title = await new Promise((r) => execFile('xdotool', ['search', '--onlyvisible', '--name', 'Maple Street'],
+      { env: { ...process.env, DISPLAY } }, (e, out) => r(String(out || '').trim())));
+    if (title) break;
+  }
 }
 
 // Turn a tool call into a short human-readable activity line.
@@ -169,8 +183,9 @@ const server = http.createServer((req, res) => {
     return sh(['status']).then((s) => res.end(JSON.stringify(
       { vncWebPort: VNC_WEB_PORT, hasSession: !!session, desktopUp: s.includes('noVNC http') })));
   }
-  const base = url.pathname.startsWith('/demo-site') ? path.join(__dirname, 'demo-site') : path.join(__dirname, 'public');
-  let rel = url.pathname.replace(/^\/demo-site/, '') || '/';
+  const [base, prefix] = url.pathname.startsWith('/demo-site') ? [path.join(__dirname, 'demo-site'), /^\/demo-site/]
+    : url.pathname.startsWith('/novnc/') ? [NOVNC_DIR, /^\/novnc/] : [path.join(__dirname, 'public'), /^$/];
+  let rel = url.pathname.replace(prefix, '') || '/';
   if (rel.endsWith('/')) rel += 'index.html';
   const file = path.join(base, path.normalize(rel));
   if (!file.startsWith(base)) { res.statusCode = 403; return res.end(); }
