@@ -12,8 +12,9 @@ Hands-Free Helper lets you **say what you need**. An AI agent then does the task
 ```
  You: "What side effects should I watch for with my Lisinopril?"   → MedlinePlus (NIH), read in plain language
  You: "Can I borrow a large-print copy of Lessons in Chemistry?"   → library: available; "Place a hold?" → "No, not now."
- You: "Is the air OK for my walk this afternoon?"                  → AirNow.gov (EPA)
- You: "Will it rain tomorrow?"                                     → National Weather Service
+ You: "My daughter sent my medication list. Use it to find me the cheapest Medicare drug plan for next year."
+      → reads the PDF, fills Medicare Plan Finder (~30 steps), "Which pharmacy do you use?" → "The first one."
+      → reads the 3 cheapest 2027 plans → "Enroll?" → "No, I'll check with my daughter first."
 ```
 
 The original offline demo, with a made-up pharmacy, still works:
@@ -47,7 +48,7 @@ Browser page (localhost:8780)    POST /mcp        app/server.js + app/mcp.js (No
 
   It works by looking at the screen. It takes a screenshot, reads it, does one action, then takes another screenshot to check the result.
 - **The MCP server** ([app/mcp.js](app/mcp.js)) exposes the agent as MCP tools (see below). The page reaches the agent only through it.
-- **The voice layer** ([app/server.js](app/server.js)) adds the Alexa+ persona and rules: short spoken sentences, never confirm a final action on the user's behalf, and end with `ASK:`, `DONE:` or `BLOCKED:`. It streams the agent's events to the page and keeps the session ID on disk, so the conversation survives restarts.
+- **The voice layer** ([app/server.js](app/server.js)) adds the Alexa+ persona and rules: short spoken sentences, never confirm a final action on the user's behalf, and end with `ASK:` (yes/no before a commitment), `NEED:` (an open question, such as which pharmacy), `DONE:` or `BLOCKED:`. It streams the agent's events to the page and keeps the session ID on disk, so the conversation survives restarts.
 - **The Alexa+ page** ([app/public/index.html](app/public/index.html)) is one HTML file, designed for low-vision users. It uses Atkinson Hyperlegible, a typeface made by the Braille Institute for low-vision readers. A light bar in the style of an Echo device shows Alexa's state (listening, working, needs your OK, done), and Alexa's current spoken line appears as a large live caption. The page also has:
   - speech in: the page records with MediaRecorder and stops automatically when you pause. The audio goes to `POST /api/stt`, where a local **faster-whisper** model ([app/stt_worker.py](app/stt_worker.py), CPU, about 1 s per command) transcribes it. No cloud speech service is involved, so it works where Chrome's built-in recognition can't reach Google.
   - speech out: the browser's built-in text-to-speech
@@ -55,7 +56,7 @@ Browser page (localhost:8780)    POST /mcp        app/server.js + app/mcp.js (No
   - live activity lines ("Clicking at (640, 410)")
   - confirmation cards with Yes/No buttons; after asking, it listens for your answer automatically
   - Alexa's cloud browser, shown live in a device-style frame. noVNC's RFB client draws straight into the page (view-only, no noVNC interface), and Chrome runs in kiosk mode, so viewers see only the website.
-- **Real sites:** the agent opens trusted public sites with `cua goto`: MedlinePlus, the Seattle Public Library catalog, AirNow.gov and weather.gov. Kiosk Chrome has no address bar, so it navigates through Chrome's local DevTools port ([nav.mjs](.claude/skills/computer-use/scripts/nav.mjs)). The voice rules hold the user's profile (Seattle 98101, Lisinopril, library card) and say: answer only from what's on screen, and ask before anything that commits the user.
+- **Real sites:** the agent opens trusted public sites with `cua goto`: MedlinePlus, the Seattle Public Library catalog, Medicare Plan Finder, AirNow.gov and weather.gov. It can also open the user's documents: a sample medication list ([app/sample-docs/](app/sample-docs/)) is copied to the desktop's Documents folder at startup. Kiosk Chrome has no address bar, so it navigates through Chrome's local DevTools port ([nav.mjs](.claude/skills/computer-use/scripts/nav.mjs)). The voice rules hold the user's profile (Seattle 98101, Lisinopril, library card) and say: answer only from what's on screen, and ask before anything that commits the user.
 - **The demo site** ([app/demo-site/](app/demo-site/)) is a made-up local pharmacy ("Maple Street Pharmacy") for an offline order-with-confirmation demo, plus the blank start page.
 
 ## MCP server (Alexa+ integration surface)

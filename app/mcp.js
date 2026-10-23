@@ -11,8 +11,9 @@ const SERVER_INFO = { name: 'hands-free-helper', title: 'Hands-Free Helper (simu
 const RESULT_SCHEMA = {
   type: 'object',
   properties: {
-    status: { type: 'string', enum: ['needs_confirmation', 'done', 'blocked', 'busy'],
-      description: 'needs_confirmation: everything is ready and the agent is waiting for the user\'s yes/no' },
+    status: { type: 'string', enum: ['needs_confirmation', 'needs_input', 'done', 'blocked', 'busy'],
+      description: 'needs_confirmation: ready for a commitment, waiting for yes/no (answer with confirm_action); ' +
+        'needs_input: waiting for information (answer with run_web_task)' },
     speech: { type: 'string', description: 'What Alexa should say to the user now' },
     narration: { type: 'array', items: { type: 'string' }, description: 'Milestones spoken while working' },
     steps: { type: 'array', items: { type: 'string' }, description: 'Every GUI action the agent took' }
@@ -84,8 +85,8 @@ function createMcpHandler({ runAgent, resetConversation }) {
     let result;
     try {
       const r = await runAgent(text, send);
-      const tag = (r.last || '').match(/^(ASK|DONE|BLOCKED):\s*(.+)$/m);
-      const status = r.busy ? 'busy' : tag ? { ASK: 'needs_confirmation', DONE: 'done', BLOCKED: 'blocked' }[tag[1]] : r.code ? 'blocked' : 'done';
+      const tag = (r.last || '').match(/^(ASK|NEED|DONE|BLOCKED):\s*(.+)$/m);
+      const status = r.busy ? 'busy' : tag ? { ASK: 'needs_confirmation', NEED: 'needs_input', DONE: 'done', BLOCKED: 'blocked' }[tag[1]] : r.code ? 'blocked' : 'done';
       const speech = r.busy ? "I'm still working on the last request." : tag ? tag[2].trim() : (r.last || '').trim();
       const structured = { status, speech, narration, steps };
       result = { content: [{ type: 'text', text: JSON.stringify(structured) }], structuredContent: structured, isError: status === 'blocked' };
@@ -117,7 +118,8 @@ function createMcpHandler({ runAgent, resetConversation }) {
           capabilities: { tools: { listChanged: false }, logging: {} },
           serverInfo: SERVER_INFO,
           instructions: 'Voice assistant back end. Call run_web_task with the user\'s request; if the result status is ' +
-            'needs_confirmation, read `speech` to the user and call confirm_action with their answer.'
+            'needs_confirmation, read `speech` to the user and call confirm_action with their answer; if needs_input, read it ' +
+            'and call run_web_task with what they say.'
         }), { 'Mcp-Session-Id': sid });
       }
       const sid = req.headers['mcp-session-id'];

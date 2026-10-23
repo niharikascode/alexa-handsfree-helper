@@ -23,7 +23,7 @@ def load_audio(path):
 model = WhisperModel(os.environ.get("STT_MODEL", "base.en"), device="cpu", compute_type="int8")
 # Bias decoding toward the words this demo hears most.
 PROMPT = ("Alexa, what side effects should I watch for with my Lisinopril? Can I borrow a large-print copy of Lessons in Chemistry from the library? "
-          "Is the air OK for my walk? Will it rain tomorrow? Yes, go ahead. No.")
+          "My daughter sent my medication list. Use it to find me the cheapest Medicare drug plan for next year. The first one. Yes, go ahead. No.")
 print(json.dumps({"ready": True}), flush=True)
 
 for line in sys.stdin:

@@ -15,6 +15,11 @@ const VNC_WEB_PORT = process.env.VNC_WEB_PORT || '8767';
 const DISPLAY = process.env.VNC_DISPLAY || ':37';
 const VNC_SH = path.join(ROOT, '.claude/skills/vnc-desktop/scripts/vnc.sh');
 const SESSION_FILE = path.join(RUN, 'session.json');
+// Sample document the agent can open on its desktop (the fictional user's medication list).
+const MED_LIST = path.join(RUN, 'home', 'Documents', 'Jordan - medication list.pdf');
+fs.mkdirSync(path.dirname(MED_LIST), { recursive: true });
+fs.copyFileSync(path.join(__dirname, 'sample-docs', 'medication-list.pdf'), MED_LIST);
+const MED_LIST_URL = 'file://' + MED_LIST.split('/').map(encodeURIComponent).join('/');
 const DEMO_URL = `http://127.0.0.1:${PORT}/demo-site/home.html`;   // blank start page; tasks use real sites
 const NOVNC_DIR = process.env.NOVNC_DIR || '/usr/share/novnc';   // noVNC's RFB client, embedded in our page
 const TZ = process.env.TZ || 'America/Los_Angeles';   // desktop clock + agent's sense of "today"
@@ -37,6 +42,15 @@ Use official sources and go straight to them:
   Say whether a large-print copy is available. Placing a hold opens the library sign-in: ask first.
 - air quality: https://www.airnow.gov/?city=Seattle&state=WA&country=USA
 - weather: https://forecast.weather.gov/MapClick.php?textField1=47.6062&textField2=-122.3321
+- Jordan's documents: the medication list from Jordan's doctor (sent by Jordan's daughter) is at
+  ${MED_LIST_URL}
+  When Jordan mentions it, open it first and read the medicines and doses aloud in one sentence.
+- Medicare drug plans (Open Enrollment for 2027 runs Oct 15 - Dec 7): https://www.medicare.gov/plan-compare/
+  Coverage year 2027, ZIP 98101, plan type: drug plan (Part D), help paying: no help. Add every medicine from the
+  list with its strength and monthly quantity (drug name, then dosage, then quantity "every month").
+  On the pharmacy step, ask Jordan (NEED) which pharmacy they use, reading the first 3 names, and select it.
+  Then sort plans by lowest drug + premium cost and tell Jordan the top 3 with their estimated yearly cost.
+  Enrolling is a commitment: ask first (ASK). Never create an account or log in.
 Voice rules:
 - Every text message you write is read aloud. Keep each to one short, friendly sentence.
 - Narrate only milestones (2-4 per task), e.g. "I'm on the National Weather Service forecast for Seattle."
@@ -47,8 +61,10 @@ Voice rules:
 - NEVER book, schedule, sign up, submit, buy or send anything, and never open a third-party booking or sign-in page,
   without Jordan's explicit yes in this conversation. Get everything ready, then stop and ask.
 - Use this project's vnc-desktop and computer-use skills (scripts under .claude/skills/) for the GUI.
+- When you need information from Jordan to continue, stop and ask; don't guess.
 - End your final message with exactly one tag line:
-    ASK: <the yes/no question to read aloud>     (waiting on Jordan)
+    ASK: <a yes/no question to read aloud>       (waiting on Jordan's yes or no before a commitment)
+    NEED: <an open question to read aloud>       (waiting on information, e.g. which pharmacy)
     DONE: <the answer or summary, spoken>        (task finished, verified on screen)
     BLOCKED: <why, spoken>                       (cannot continue)
 - If Jordan asks about something from earlier, open that page again and confirm it on screen before answering.`;

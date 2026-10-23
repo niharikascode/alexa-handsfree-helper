@@ -134,7 +134,7 @@ body:not([data-state=idle]) .frame{box-shadow:0 0 0 16px #1A2129,0 0 0 19px var(
     <div class="stage">
       <div class="status" id="state" role="status" aria-live="polite">Ready</div>
       <p class="heard" id="heard"></p>
-      <p class="caption empty" id="caption" aria-live="polite">Hi Jordan. Ask me about your medicine, library books, the air or the weather. I’ll look it up on trusted sites, tell you how it’s going, and check with you before anything is booked.</p>
+      <p class="caption empty" id="caption" aria-live="polite">Hi Jordan. Ask me about your medicines, library books or Medicare plans. I’ll look it up on trusted sites, tell you how it’s going, and check with you before anything is booked.</p>
       <div id="result"></div>
       <details class="history" id="historyBox">
         <summary>Conversation so far</summary>
@@ -151,8 +151,7 @@ body:not([data-state=idle]) .frame{box-shadow:0 0 0 16px #1A2129,0 0 0 19px var(
       <div class="try" id="hints">Try:
         <button class="hint">What side effects should I watch for with my Lisinopril?</button> ·
         <button class="hint">Can I borrow a large-print copy of Lessons in Chemistry?</button> ·
-        <button class="hint">Is the air OK for my walk this afternoon?</button> ·
-        <button class="hint">Will it rain tomorrow?</button></div>
+        <button class="hint">My daughter sent my medication list. Use it to find me the cheapest Medicare drug plan for next year.</button></div>
       <form class="typed" id="form"><input id="text" placeholder="Or type your request" autocomplete="off" aria-label="Type your request"><button>Send</button></form>
     </div>
   </section>
@@ -209,8 +208,8 @@ function step(text) {
 
 // Split an agent message into spoken text and an optional ASK/DONE/BLOCKED tag.
 function parse(text) {
-  const m = text.match(/^(ASK|DONE|BLOCKED):\s*(.+)$/m);
-  const body = text.replace(/^(ASK|DONE|BLOCKED):.*$/m, '').trim();
+  const m = text.match(/^(ASK|NEED|DONE|BLOCKED):\s*(.+)$/m);
+  const body = text.replace(/^(ASK|NEED|DONE|BLOCKED):.*$/m, '').trim();
   return { body, tag: m && m[1], tagText: m && m[2].trim() };
 }
 
@@ -355,22 +354,26 @@ async function send(text) {
     step(`🔌 MCP tools/call ${tool}`);
     const res = await mcp.call(tool, args, onNote);
     const st = res.structuredContent && res.structuredContent.status;
-    if (!lastTag && st) { lastTag = { needs_confirmation: 'ASK', done: 'DONE', blocked: 'BLOCKED', busy: 'BLOCKED' }[st];
+    if (!lastTag && st) { lastTag = { needs_confirmation: 'ASK', needs_input: 'NEED', done: 'DONE', blocked: 'BLOCKED', busy: 'BLOCKED' }[st];
       outcome(lastTag, res.structuredContent.speech); speak(res.structuredContent.speech); }
+    if (st === 'needs_input') lastTag = 'NEED';
   } catch (e) { caption('The connection to the helper dropped. Check that the server is running.'); lastTag = 'BLOCKED'; }
   running = false; clearInterval(tick);
   $('now').innerHTML = '';
   await speakQ;
-  setState({ ASK: 'ask', DONE: 'done', BLOCKED: 'blocked' }[lastTag] || 'idle');
+  setState({ ASK: 'ask', NEED: 'ask', DONE: 'done', BLOCKED: 'blocked' }[lastTag] || 'idle',
+    lastTag === 'NEED' ? 'Waiting for your answer' : undefined);
   awaitingOk = lastTag === 'ASK';
-  // hands-free: wait for the spoken yes/no, after a beat so the mic doesn't hear Alexa's own voice
-  if (lastTag === 'ASK') setTimeout(() => listen(true), 500);
+  // hands-free: listen for the answer, after a beat so the mic doesn't hear Alexa's own voice
+  if (lastTag === 'ASK' || lastTag === 'NEED') setTimeout(() => listen(true), 500);
 }
 
 function outcome(tag, text) {
   caption(text);
   const box = $('result');
-  if (tag === 'ASK') {
+  if (tag === 'NEED') {
+    box.innerHTML = '<div class="decision"><p>Just say your answer, or type it below.</p></div>';
+  } else if (tag === 'ASK') {
     box.innerHTML = '<div class="decision"><p>Say “yes” or “no”, or choose:</p><div class="row"><button class="yes">Yes, go ahead</button><button class="no">No, stop</button></div></div>';
     box.querySelector('.yes').onclick = () => { rec && rec.abort(); send('Yes, go ahead.'); };   // → confirm_action
     box.querySelector('.no').onclick = () => { rec && rec.abort(); send('No, stop.'); };
