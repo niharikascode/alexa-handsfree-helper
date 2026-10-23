@@ -14,6 +14,7 @@ const DISPLAY = process.env.VNC_DISPLAY || ':37';
 const VNC_SH = path.join(ROOT, '.claude/skills/vnc-desktop/scripts/vnc.sh');
 const SESSION_FILE = path.join(RUN, 'session.json');
 const DEMO_URL = `http://localhost:${PORT}/demo-site/`;
+const TZ = process.env.TZ || 'America/Los_Angeles';   // desktop clock + agent's sense of "today"
 fs.mkdirSync(RUN, { recursive: true });
 
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css',
@@ -41,7 +42,7 @@ let session = null;           // claude session id, persisted so Alexa remembers
 try { session = JSON.parse(fs.readFileSync(SESSION_FILE, 'utf8')).session; } catch {}
 let busy = null;              // running child process
 
-const sh = (args) => new Promise((res) => execFile(VNC_SH, args, { cwd: ROOT }, (e, out) => res(String(out || ''))));
+const sh = (args) => new Promise((res) => execFile(VNC_SH, args, { cwd: ROOT, env: { ...process.env, TZ } }, (e, out) => res(String(out || ''))));
 
 // Local speech-to-text: one long-lived faster-whisper worker, requests answered in order.
 const STT_PY = process.env.STT_PYTHON || path.join(ROOT, '.venv/bin/python');
@@ -78,7 +79,7 @@ async function ensureDesktop(send) {
   if (!out.includes('up:')) throw new Error('desktop failed to start: ' + out);
   spawn('google-chrome', ['--no-sandbox', '--test-type', '--no-first-run', '--no-default-browser-check',
     '--start-maximized', '--disable-features=Translate', `--user-data-dir=${path.join(RUN, 'chrome')}`, DEMO_URL],
-    { env: { ...process.env, DISPLAY, HOME: path.join(RUN, 'home') }, detached: true, stdio: 'ignore' }).unref();
+    { env: { ...process.env, DISPLAY, TZ, HOME: path.join(RUN, 'home') }, detached: true, stdio: 'ignore' }).unref();
   send({ type: 'status', text: 'Opening the browser…' });
   await new Promise((r) => setTimeout(r, 8000));
 }
@@ -88,10 +89,13 @@ function describe(tool) {
   const i = tool.input || {};
   if (tool.name === 'Read') return /\.png$/.test(i.file_path || '') ? '👀 Looking at the screen' : '📄 Reading a file';
   if (tool.name !== 'Bash') return `⚙️ ${tool.name}`;
+  // the agent's own description ("Click Refill for Lisinopril") reads best; parse the command otherwise
+  if (/skill/i.test(i.description || '') || /SKILL\.md|vnc\.sh|ls .*skills/.test(i.command || '')) return '🛠️ Getting ready';
+  if (i.description) return `• ${i.description}`;
   const m = (i.command || '').match(/cua\s+(\w+)\s*(.*)/);
   if (!m) return /vnc\.sh/.test(i.command) ? '🖥️ Checking the desktop' : `⚙️ ${i.description || 'Working'}`;
   const [, cmd, rest] = m;
-  const arg = rest.replace(/^['"]|['"]$/g, '').trim();
+  const arg = rest.split(/;|&&|\n/)[0].replace(/^['"]|['"]$/g, '').trim();   // first command of a chain
   return ({ shot: '📸 Taking a screenshot', click: `🖱️ Clicking at (${arg.split(/\s+/).join(', ')})`,
     doubleclick: '🖱️ Double-clicking', type: `⌨️ Typing “${arg.slice(0, 40)}”`, key: `⌨️ Pressing ${arg}`,
     goto: `🌐 Opening ${arg}`, scroll: `↕️ Scrolling ${arg}`, clear: '⌫ Clearing the field', wait: '⏳ Waiting' })[cmd] || `⚙️ ${cmd}`;
@@ -107,7 +111,7 @@ async function ask(text, res) {
     '--agent', 'vnc-agent', '--output-format', 'stream-json', '--verbose', '--allowedTools', 'Bash Read'];
   if (session) args.push('--resume', session);
   if (process.env.CLAUDE_MODEL) args.push('--model', process.env.CLAUDE_MODEL);
-  const child = busy = spawn('claude', args, { cwd: ROOT, env: { ...process.env, VNC_DISPLAY: DISPLAY } });
+  const child = busy = spawn('claude', args, { cwd: ROOT, env: { ...process.env, TZ, VNC_DISPLAY: DISPLAY } });
   send({ type: 'status', text: 'Working on it…' });
 
   let buf = '', last = '';

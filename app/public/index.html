@@ -4,83 +4,166 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Hands-Free Helper</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
 <style>
-:root{--bg:#0b1220;--panel:#121b2e;--panel2:#18233a;--line:#24324f;--text:#e8eefc;--muted:#93a3c4;
-  --cyan:#3fd0ff;--cyan2:#1a8fd6;--ok:#3ddc97;--warn:#ffc35a;--bad:#ff6b6b;--user:#2b3a5c}
-*{box-sizing:border-box}html,body{height:100%}
-body{margin:0;background:var(--bg);color:var(--text);font:16px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
-.app{display:grid;grid-template-columns:440px 1fr;height:100vh}
-.side{display:flex;flex-direction:column;border-right:1px solid var(--line);background:var(--panel);min-height:0}
-.top{display:flex;align-items:center;gap:10px;padding:16px 18px;border-bottom:1px solid var(--line)}
-.top h1{font-size:17px;margin:0}.top .tag{font-size:12px;color:var(--muted);border:1px solid var(--line);border-radius:99px;padding:2px 9px}
-.top .sp{flex:1}
-.iconbtn{background:var(--panel2);border:1px solid var(--line);color:var(--muted);border-radius:8px;padding:6px 10px;font-size:13px;cursor:pointer}
-.iconbtn:hover{color:var(--text)}
-.ringwrap{display:flex;flex-direction:column;align-items:center;padding:22px 0 12px}
-.ring{width:118px;height:118px;border-radius:50%;border:none;cursor:pointer;position:relative;
-  background:radial-gradient(circle at 50% 50%,#0f1a30 52%,transparent 53%),conic-gradient(var(--cyan2),var(--cyan),var(--cyan2));
-  box-shadow:0 0 0 0 rgba(63,208,255,.0);transition:transform .15s}
-.ring:active{transform:scale(.96)}
-.ring svg{position:absolute;inset:0;margin:auto;width:40px;height:40px;fill:var(--cyan)}
-.ring.listening{animation:pulse 1.1s infinite}
-.ring.thinking{background:radial-gradient(circle at 50% 50%,#0f1a30 52%,transparent 53%),conic-gradient(from 0deg,var(--cyan) 0 25%,#1b2a48 25% 100%);animation:spin 1s linear infinite}
-.ring.speaking{animation:pulse .6s infinite}
-@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(63,208,255,.55)}100%{box-shadow:0 0 0 22px rgba(63,208,255,0)}}
-@keyframes spin{to{transform:rotate(360deg)}}
-.state{margin-top:12px;color:var(--muted);font-size:14px;min-height:20px}
-.chat{flex:1;overflow:auto;padding:6px 16px 10px;display:flex;flex-direction:column;gap:8px;min-height:0}
-.msg{max-width:88%;padding:9px 13px;border-radius:14px;white-space:pre-wrap}
-.msg.user{align-self:flex-end;background:var(--user);border-bottom-right-radius:4px}
-.msg.alexa{align-self:flex-start;background:var(--panel2);border:1px solid var(--line);border-bottom-left-radius:4px}
-.act{align-self:flex-start;font-size:13px;color:var(--muted);padding:1px 6px}
-.card{align-self:stretch;border-radius:14px;padding:14px 16px;border:1px solid var(--line);background:linear-gradient(160deg,#16233d,#121b2e)}
-.card .k{font-size:12px;letter-spacing:.08em;text-transform:uppercase;font-weight:700;margin-bottom:4px}
-.card.ask .k{color:var(--warn)}.card.done .k{color:var(--ok)}.card.blocked .k{color:var(--bad)}
-.card .row{display:flex;gap:8px;margin-top:10px}
-.card button{flex:1;padding:9px;border-radius:10px;border:0;font-weight:700;font-size:15px;cursor:pointer}
-.yes{background:var(--ok);color:#06281a}.no{background:var(--panel2);color:var(--text);border:1px solid var(--line)!important}
-.composer{display:flex;gap:8px;padding:12px 16px;border-top:1px solid var(--line)}
-.composer input{flex:1;background:var(--panel2);border:1px solid var(--line);color:var(--text);border-radius:10px;padding:10px 12px;font-size:15px}
-.composer button{background:var(--cyan2);border:0;color:#fff;border-radius:10px;padding:0 16px;font-weight:700;cursor:pointer}
-.hints{display:flex;flex-wrap:wrap;gap:6px;padding:0 16px 12px}
-.hint{font-size:12.5px;color:var(--muted);background:transparent;border:1px dashed var(--line);border-radius:99px;padding:4px 10px;cursor:pointer}
-.hint:hover{color:var(--text);border-color:var(--cyan2)}
-.screen{position:relative;display:flex;flex-direction:column;min-width:0}
-.screenbar{display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--line);font-size:13px;color:var(--muted)}
-.dot{width:8px;height:8px;border-radius:50%;background:var(--muted)}.dot.live{background:var(--ok);box-shadow:0 0 8px var(--ok)}
-.screenbar .sp{flex:1}
-iframe{flex:1;border:0;width:100%;background:#000}
-.empty{position:absolute;inset:44px 0 0;display:grid;place-items:center;color:var(--muted);text-align:center;padding:20px;pointer-events:none}
-@media (max-width:900px){.app{grid-template-columns:1fr;grid-template-rows:auto 50vh;height:auto}.side{min-height:70vh}}
+:root{
+  --ink:#0E1A24; --ink-2:#3C4B57; --ink-3:#6A7884;
+  --paper:#EEF2F5; --surface:#FFFFFF; --rule:#D3DCE3; --screen:#0E1A24;
+  --listen:#2F6FEB; --work:#7A5AF8; --ask:#E39A0B; --done:#14915F; --stop:#D23F3F;
+  --state:var(--ink-3);
+  --font:"Atkinson Hyperlegible",system-ui,-apple-system,"Segoe UI",sans-serif;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--paper);color:var(--ink);font:18px/1.5 var(--font)}
+body[data-state=listening]{--state:var(--listen)} body[data-state=thinking]{--state:var(--work)}
+body[data-state=speaking]{--state:var(--listen)} body[data-state=ask]{--state:var(--ask)}
+body[data-state=done]{--state:var(--done)} body[data-state=blocked]{--state:var(--stop)}
+button,input{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--listen);outline-offset:3px}
+
+.app{display:grid;grid-template-columns:minmax(440px,36%) 1fr;height:100vh}
+
+/* left: the conversation */
+.talk{position:relative;display:flex;flex-direction:column;min-height:0;background:var(--surface);border-right:1px solid var(--rule)}
+.lightbar{height:10px;background:var(--state);transition:background .3s;position:relative;overflow:hidden}
+body[data-state=idle] .lightbar{background:var(--rule)}
+body[data-state=thinking] .lightbar::after{content:"";position:absolute;inset:0;width:35%;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.75),transparent);animation:sweep 1.4s ease-in-out infinite}
+body[data-state=listening] .lightbar,body[data-state=speaking] .lightbar{animation:breathe 1.2s ease-in-out infinite}
+@keyframes sweep{from{transform:translateX(-100%)}to{transform:translateX(300%)}}
+@keyframes breathe{50%{opacity:.55}}
+
+.bar{display:flex;align-items:center;gap:12px;padding:18px 28px 0}
+.bar h1{margin:0;font-size:20px;font-weight:700;letter-spacing:-.01em;white-space:nowrap}
+.bar .sim{display:block;font-size:14px;font-weight:400;color:var(--ink-3)}
+.bar .sp{flex:1}
+.quiet{white-space:nowrap;background:none;border:1px solid var(--rule);border-radius:8px;padding:6px 12px;font-size:15px;color:var(--ink-2);cursor:pointer}
+.quiet:hover{border-color:var(--ink-3);color:var(--ink)}
+
+.stage{flex:1;overflow:auto;padding:28px 28px 12px;min-height:0;display:flex;flex-direction:column}
+.status{display:flex;align-items:center;gap:10px;font-size:16px;font-weight:700;color:var(--state);min-height:24px}
+.status::before{content:"";width:12px;height:12px;border-radius:50%;background:var(--state);flex:none}
+body[data-state=idle] .status{color:var(--ink-3)}
+.heard{margin:22px 0 0;font-size:19px;color:var(--ink-2);font-style:italic;min-height:1.5em}
+.caption{margin:10px 0 0;font-size:clamp(28px,2.5vw,40px);line-height:1.22;font-weight:700;letter-spacing:-.015em;max-width:24ch}
+.caption.empty{color:var(--ink-3);font-weight:400}
+
+.decision{margin-top:24px;padding:20px;border-radius:14px;border:2px solid var(--ask);background:#FFF7E6}
+.decision p{margin:0 0 14px;font-size:19px}
+.decision .row{display:flex;gap:12px}
+.decision button{flex:1;min-height:56px;border-radius:12px;font-size:20px;font-weight:700;cursor:pointer;border:2px solid var(--ink)}
+.decision .yes{background:var(--ink);color:#fff}
+.decision .no{background:var(--surface)}
+.outcome{margin-top:24px;padding:16px 20px;border-radius:14px;font-size:19px;border-left:6px solid var(--done);background:#E9F7F0}
+.outcome.blocked{border-color:var(--stop);background:#FDECEC}
+
+.history{margin-top:auto;padding-top:28px}
+.history summary{cursor:pointer;color:var(--ink-3);font-size:15px;list-style:none}
+.history summary::-webkit-details-marker{display:none}
+.history summary::before{content:"▸ ";}
+.history[open] summary::before{content:"▾ ";}
+.history ol{list-style:none;margin:10px 0 0;padding:0;display:flex;flex-direction:column;gap:8px}
+.history li{font-size:16px;line-height:1.4;padding-left:14px;border-left:3px solid var(--rule)}
+.history li.you{border-color:var(--listen);color:var(--ink-2)}
+.history li b{font-weight:700;margin-right:6px}
+
+.dock{padding:16px 28px 24px;border-top:1px solid var(--rule);display:flex;flex-direction:column;gap:12px}
+.mic{position:relative;display:flex;align-items:center;justify-content:center;gap:12px;width:100%;min-height:72px;border-radius:999px;
+  border:0;background:var(--ink);color:#fff;font-size:22px;font-weight:700;cursor:pointer;overflow:hidden}
+.mic svg{width:26px;height:26px;fill:currentColor;flex:none}
+.mic .level{position:absolute;left:0;top:0;bottom:0;width:0;background:var(--listen);opacity:.9;transition:width .06s linear}
+.mic span,.mic svg{position:relative}
+body[data-state=listening] .mic{background:#1B3F86}
+body[data-state=thinking] .mic,body[data-state=speaking] .mic{background:var(--ink-3);cursor:default}
+.mic kbd{font:inherit;font-size:14px;font-weight:400;opacity:.75;border:1px solid rgba(255,255,255,.4);border-radius:6px;padding:1px 7px}
+.typed{display:flex;gap:8px}
+.typed input{flex:1;min-width:0;border:1px solid var(--rule);border-radius:10px;padding:10px 14px;font-size:16px;background:var(--paper)}
+.typed button{border:1px solid var(--rule);background:var(--surface);border-radius:10px;padding:0 16px;font-size:16px;cursor:pointer}
+.try{font-size:15px;color:var(--ink-3)}
+.try button{background:none;border:0;padding:0;color:var(--listen);text-decoration:underline;text-underline-offset:3px;cursor:pointer;font-size:15px;text-align:left}
+
+/* right: what Alexa is doing */
+.watch{display:flex;flex-direction:column;min-width:0;min-height:0;padding:20px 24px 20px}
+.watch header{display:flex;align-items:baseline;gap:14px;margin-bottom:12px;min-height:28px}
+.watch h2{margin:0;font-size:18px}
+.watch .live{font-size:14px;color:var(--ink-3)}
+.watch .live.on{color:var(--done);font-weight:700}
+.watch .sp{flex:1}
+.watch .clock{font-size:15px;color:var(--ink-3);font-variant-numeric:tabular-nums}
+/* the frame keeps the desktop's 16:9 shape, as large as the space allows */
+.fit{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;container-type:size}
+.frame{position:relative;width:min(100cqw - 12px,(100cqh - 12px) * 16 / 9);aspect-ratio:16/9;border-radius:12px;overflow:hidden;background:var(--screen);
+  box-shadow:0 0 0 4px var(--surface),0 0 0 6px var(--rule);transition:box-shadow .3s}
+.frame .empty[hidden]{display:none}
+body:not([data-state=idle]) .frame{box-shadow:0 0 0 4px var(--surface),0 0 0 6px var(--state)}
+.frame iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+.frame .empty{position:absolute;inset:0;display:grid;place-items:center;color:#9FB0BD;font-size:18px;text-align:center;padding:24px}
+.now{display:flex;align-items:baseline;gap:8px;font-size:16px;color:var(--ink-2);min-width:0;overflow:hidden;white-space:nowrap}
+.now .what{font-weight:700;color:var(--ink)}
+.steps{margin-top:8px}
+.steps summary{cursor:pointer;color:var(--ink-3);font-size:15px}
+.steps ol{margin:8px 0 0;padding-left:22px;max-height:140px;overflow:auto;font-size:14.5px;color:var(--ink-2);columns:2;column-gap:32px}
+
+@media (max-width:980px){
+  .app{grid-template-columns:1fr;height:auto}
+  .talk{min-height:100vh;border-right:0}
+  .watch{padding:16px}
+  .fit{flex:none;container-type:inline-size}
+  .frame{width:100%}
+  .bar,.stage,.dock{padding-left:16px;padding-right:16px}
+  .steps ol{columns:1}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
 </head>
-<body>
+<body data-state="idle">
 <div class="app">
-  <section class="side">
-    <div class="top"><h1>Hands-Free Helper</h1><span class="tag">simulated Alexa+</span><span class="sp"></span>
-      <button class="iconbtn" id="stop" title="Stop the agent">Stop</button>
-      <button class="iconbtn" id="reset" title="Forget this conversation">New chat</button></div>
-    <div class="ringwrap">
-      <button class="ring" id="ring" aria-label="Talk to Alexa"><svg viewBox="0 0 24 24"><path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 1 0-6 0v6a3 3 0 0 0 3 3Zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-2.08A7 7 0 0 0 19 12h-2Z"/></svg></button>
-      <div class="state" id="state">Tap the ring or press Space, then speak</div>
+  <section class="talk" aria-label="Conversation with Alexa">
+    <div class="lightbar" aria-hidden="true"></div>
+    <div class="bar">
+      <h1>Hands-Free Helper<span class="sim">simulated Alexa+</span></h1><span class="sp"></span>
+      <button class="quiet" id="stop" hidden>Stop</button>
+      <button class="quiet" id="reset">New conversation</button>
     </div>
-    <div class="chat" id="chat"></div>
-    <div class="hints" id="hints">
-      <button class="hint">Alexa, refill my blood pressure medication at Maple Street Pharmacy</button>
-      <button class="hint">When is my refill ready again?</button>
+
+    <div class="stage">
+      <div class="status" id="state" role="status" aria-live="polite">Ready</div>
+      <p class="heard" id="heard"></p>
+      <p class="caption empty" id="caption" aria-live="polite">Ask for anything you’d normally do on a website. I’ll do it, tell you how it’s going, and check with you before anything is sent.</p>
+      <div id="result"></div>
+      <details class="history" id="historyBox">
+        <summary>Conversation so far</summary>
+        <ol id="history"></ol>
+      </details>
     </div>
-    <form class="composer" id="form"><input id="text" placeholder="…or type what you'd say to Alexa" autocomplete="off"><button>Send</button></form>
+
+    <div class="dock">
+      <button class="mic" id="ring" aria-label="Tap to talk">
+        <span class="level" id="level"></span>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 1 0-6 0v6a3 3 0 0 0 3 3Zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-2.08A7 7 0 0 0 19 12h-2Z"/></svg>
+        <span id="micLabel">Tap to talk</span><kbd>Space</kbd>
+      </button>
+      <div class="try" id="hints">Try: <button class="hint">Refill my blood pressure medication at Maple Street Pharmacy</button></div>
+      <form class="typed" id="form"><input id="text" placeholder="Or type your request" autocomplete="off" aria-label="Type your request"><button>Send</button></form>
+    </div>
   </section>
-  <section class="screen">
-    <div class="screenbar"><span class="dot" id="dot"></span><span id="screenlbl">Agent's desktop: what Alexa is doing for you</span><span class="sp"></span><span id="timer"></span></div>
-    <iframe id="vnc" title="Live agent desktop"></iframe>
-    <div class="empty" id="empty">The desktop starts on your first request.</div>
+
+  <section class="watch" aria-label="Alexa's screen">
+    <header><h2>Alexa’s screen</h2><span class="live" id="live">not started</span><span class="sp"></span><span class="now" id="now"></span><span class="clock" id="timer"></span></header>
+    <div class="fit"><div class="frame">
+      <iframe id="vnc" title="Live view of the browser Alexa is using"></iframe>
+      <div class="empty" id="empty">The browser Alexa uses appears here when you make your first request.</div>
+    </div></div>
+    <details class="steps" id="stepsBox"><summary id="stepsSum">Every step Alexa took</summary><ol id="steps"></ol></details>
   </section>
 </div>
 <script>
 const $ = (id) => document.getElementById(id);
-const chat = $('chat'), ring = $('ring'), stateEl = $('state');
-let cfg = {}, running = false, t0 = 0, tick;
+const stateEl = $('state'), ring = $('ring');
+let cfg = {}, running = false, t0 = 0, tick, stepCount = 0;
 
 let vncLoaded = false;
 fetch('/api/config').then(r => r.json()).then(c => { cfg = c; if (c.desktopUp) loadVnc(); });
@@ -88,11 +171,28 @@ function loadVnc() {
   if (vncLoaded) return; vncLoaded = true;
   const f = $('vnc');
   f.src = `http://${location.hostname}:${cfg.vncWebPort}/vnc.html?autoconnect=1&resize=scale&view_only=1&reconnect=1&reconnect_delay=1500`;
-  f.onload = () => { $('empty').style.display = 'none'; $('dot').classList.add('live'); };
+  f.onload = () => { $('empty').hidden = true; $('live').textContent = 'live'; $('live').classList.add('on'); };
 }
 
-function setState(s, label) { ring.className = 'ring ' + s; stateEl.textContent = label; }
-function add(cls, text) { const d = document.createElement('div'); d.className = cls; d.textContent = text; chat.appendChild(d); chat.scrollTop = chat.scrollHeight; return d; }
+const LABELS = { idle: 'Ready', listening: 'Listening', thinking: 'Working on it', speaking: 'Speaking',
+  ask: 'Needs your OK', done: 'Done', blocked: 'Couldn’t finish' };
+function setState(s, label) {
+  document.body.dataset.state = s || 'idle';
+  stateEl.textContent = label || LABELS[s || 'idle'];
+  $('micLabel').textContent = s === 'listening' ? 'Listening… tap when done' : s === 'thinking' ? 'Working…' : 'Tap to talk';
+  $('stop').hidden = s !== 'thinking';
+}
+function remember(who, text) {
+  const li = document.createElement('li'); li.className = who === 'You' ? 'you' : '';
+  li.innerHTML = '<b></b><span></span>'; li.children[0].textContent = who; li.children[1].textContent = text;
+  $('history').appendChild(li);
+}
+function caption(text) { const c = $('caption'); c.classList.remove('empty'); c.textContent = text; }
+function step(text) {
+  $('now').innerHTML = '<span>Now</span><span class="what"></span>'; $('now').lastChild.textContent = text.replace(/^\S+\s/, '');
+  const li = document.createElement('li'); li.textContent = text.replace(/^\S+\s/, ''); $('steps').appendChild(li);
+  $('stepsSum').textContent = `Every step Alexa took (${++stepCount})`;
+}
 
 // Split an agent message into spoken text and an optional ASK/DONE/BLOCKED tag.
 function parse(text) {
@@ -109,7 +209,7 @@ function speak(text) {
     const u = new SpeechSynthesisUtterance(text.replace(/[*_`#]/g, ''));
     const v = synth.getVoices().find(v => /Samantha|Google US English|Jenny|Aria|Female/i.test(v.name)); if (v) u.voice = v;
     u.rate = 1.05; u.onend = u.onerror = res;
-    if (!running) setState('speaking', 'Speaking…');
+    if (!running && document.body.dataset.state === 'idle') setState('speaking');
     synth.speak(u);
   }));
   return speakQ;
@@ -118,14 +218,19 @@ function speak(text) {
 // Speech in: record with MediaRecorder, stop automatically ~1.3 s after the user goes quiet,
 // then transcribe on our own server (local Whisper) - no cloud speech service needed.
 let rec = null;   // { stop(), abort() } while recording
-async function listen() {
+async function listen(auto = false) {
   if (running || rec) return;
-  if (!navigator.mediaDevices || !window.MediaRecorder) { stateEl.textContent = 'Recording needs http://localhost in Chrome or Edge'; return; }
+  if (!navigator.mediaDevices || !window.MediaRecorder) { setState('blocked', 'Recording needs http://localhost in Chrome or Edge'); return; }
   if (synth) synth.cancel();
   let stream;
   try { stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } }); }
-  catch (e) { setState('', e.name === 'NotFoundError' ? 'No microphone found: check your input device'
-    : 'Microphone blocked: allow it in the address bar (page must be on http://localhost)'); return; }
+  catch (e) {
+    const why = e.name === 'NotFoundError' ? 'No microphone found. Check your input device.'
+      : 'Microphone blocked. Allow it in the address bar; the page must be on http://localhost.';
+    // after a question, keep the question on screen: the buttons still work without a mic
+    if (auto) return setState('ask', 'Needs your OK. Use the buttons, the microphone isn’t available');
+    return setState('blocked', why);
+  }
 
   const ctx = new AudioContext(), an = ctx.createAnalyser(); an.fftSize = 1024;
   ctx.createMediaStreamSource(stream).connect(an);
@@ -137,35 +242,36 @@ async function listen() {
     const rms = Math.sqrt(buf.reduce((s, v) => s + v * v, 0) / buf.length), now = Date.now();
     if (now - start < 300) { floor += rms; n++; return; }          // learn the room's noise level
     const thr = Math.max(0.012, (floor / Math.max(n, 1)) * 3);
-    ring.style.boxShadow = `0 0 0 ${Math.min(26, rms * 400)}px rgba(63,208,255,.35)`;
+    $('level').style.width = Math.min(100, rms * 900) + '%';
     if (rms > thr) { heard = true; lastLoud = now; }
     if ((heard && now - lastLoud > 1300) || (!heard && now - start > 7000) || now - start > 15000) finish();
   }, 50);
   function finish() { if (mr.state !== 'inactive') mr.stop(); }
   mr.onstop = async () => {
-    clearInterval(timer); stream.getTracks().forEach((t) => t.stop()); ctx.close(); ring.style.boxShadow = ''; rec = null;
-    if (aborted) return setState('', 'Tap the ring or press Space, then speak');
-    if (!heard) return setState('', 'I didn’t hear anything, tap the ring and try again');
-    setState('thinking', 'Transcribing…');
+    clearInterval(timer); stream.getTracks().forEach((t) => t.stop()); ctx.close(); $('level').style.width = 0; rec = null;
+    if (aborted) return setState(auto ? 'ask' : 'idle');
+    if (!heard) return setState(auto ? 'ask' : 'idle', auto ? 'Needs your OK. Say yes or no, or use the buttons' : 'I didn’t hear anything. Tap to talk and try again.');
+    setState('thinking', 'Writing down what you said');
     try {
       const r = await (await fetch('/api/stt', { method: 'POST', body: new Blob(chunks, { type: mr.mimeType }) })).json();
       const said = (r.text || '').trim();
       if (said) return send(said);
-      setState('', r.error ? 'Speech error: ' + r.error : 'Sorry, I didn’t catch that, try again');
-    } catch { setState('', 'Couldn’t reach the server for transcription'); }
+      setState('idle', r.error ? 'Speech error: ' + r.error : 'I didn’t catch that. Tap to talk and try again.');
+    } catch { setState('blocked', 'Can’t reach the helper server to transcribe.'); }
   };
   rec = { stop: finish, abort: () => { aborted = true; finish(); } };
-  mr.start(250); setState('listening', 'Listening… (stops when you pause, or tap)');
+  mr.start(250); setState('listening');
 }
 ring.onclick = () => rec ? rec.stop() : listen();
-document.addEventListener('keydown', (e) => { if (e.code === 'Space' && document.activeElement.tagName !== 'INPUT') { e.preventDefault(); ring.click(); } });
+document.addEventListener('keydown', (e) => { if (e.code === 'Space' && !/INPUT|BUTTON/.test(document.activeElement.tagName)) { e.preventDefault(); ring.click(); } });
 
 // --- talk to the agent ---
 async function send(text) {
   if (running || !text) return;
-  $('hints').style.display = 'none';
-  add('msg user', text); running = true; setState('thinking', 'Working on it…');
-  t0 = Date.now(); tick = setInterval(() => $('timer').textContent = Math.round((Date.now() - t0) / 1000) + 's', 500);
+  $('hints').hidden = true; $('result').innerHTML = '';
+  $('heard').textContent = '“' + text + '”'; remember('You', text);
+  running = true; setState('thinking'); caption('On it.');
+  t0 = Date.now(); tick = setInterval(() => $('timer').textContent = Math.round((Date.now() - t0) / 1000) + ' s', 500);
   let lastTag = null;
   try {
     const r = await fetch('/api/ask', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text }) });
@@ -177,42 +283,47 @@ async function send(text) {
         const chunk = buf.slice(0, i); buf = buf.slice(i + 2);
         if (!chunk.startsWith('data: ')) continue;
         const ev = JSON.parse(chunk.slice(6));
-        if (ev.type === 'status') { stateEl.textContent = ev.text; if (ev.text.startsWith('Working')) loadVnc(); }
-        if (ev.type === 'activity') { add('act', ev.text); stateEl.textContent = ev.text; }
+        if (ev.type === 'status') { stateEl.textContent = ev.text.replace('…', ''); if (ev.text.startsWith('Working')) loadVnc(); }
+        if (ev.type === 'activity') step(ev.text);
         if (ev.type === 'say') {
           const p = parse(ev.text);
-          if (p.body) { add('msg alexa', p.body); speak(p.body); }
-          if (p.tag) { card(p.tag, p.tagText); speak(p.tagText); lastTag = p.tag; }
+          if (p.body) { caption(p.body); remember('Alexa', p.body); speak(p.body); }
+          if (p.tag) { outcome(p.tag, p.tagText); remember('Alexa', p.tagText); speak(p.tagText); lastTag = p.tag; }
         }
-        if (ev.type === 'error') { add('msg alexa', ev.text); speak(ev.text); }
+        if (ev.type === 'error') { caption(ev.text); remember('Alexa', ev.text); speak(ev.text); lastTag = 'BLOCKED'; }
       }
     }
-  } catch (e) { add('msg alexa', 'Sorry, I lost the connection.'); }
+  } catch (e) { caption('The connection to the helper dropped. Check that the server is running.'); lastTag = 'BLOCKED'; }
   running = false; clearInterval(tick);
-  await speakQ; setState('', 'Tap the ring or press Space, then speak');
+  $('now').innerHTML = '';
+  await speakQ;
+  setState({ ASK: 'ask', DONE: 'done', BLOCKED: 'blocked' }[lastTag] || 'idle');
   // hands-free: wait for the spoken yes/no, after a beat so the mic doesn't hear Alexa's own voice
-  if (lastTag === 'ASK') setTimeout(listen, 500);
+  if (lastTag === 'ASK') setTimeout(() => listen(true), 500);
 }
 
-function card(tag, text) {
-  const d = document.createElement('div'); d.className = 'card ' + tag.toLowerCase();
-  d.innerHTML = `<div class="k">${{ ASK: 'Needs your OK', DONE: 'Done', BLOCKED: 'Couldn’t finish' }[tag]}</div><div></div>`;
-  d.children[1].textContent = text;
+function outcome(tag, text) {
+  caption(text);
+  const box = $('result');
   if (tag === 'ASK') {
-    const row = document.createElement('div'); row.className = 'row';
-    row.innerHTML = '<button class="yes">Yes, go ahead</button><button class="no">No</button>';
-    row.querySelector('.yes').onclick = () => { rec && rec.abort(); send('Yes, go ahead.'); };
-    row.querySelector('.no').onclick = () => { rec && rec.abort(); send("No, don't do that."); };
-    d.appendChild(row);
+    box.innerHTML = '<div class="decision"><p>Say “yes” or “no”, or choose:</p><div class="row"><button class="yes">Yes, go ahead</button><button class="no">No, stop</button></div></div>';
+    box.querySelector('.yes').onclick = () => { rec && rec.abort(); send('Yes, go ahead.'); };
+    box.querySelector('.no').onclick = () => { rec && rec.abort(); send("No, don't do that."); };
+  } else {
+    box.innerHTML = `<div class="outcome ${tag === 'BLOCKED' ? 'blocked' : ''}"></div>`;
+    box.firstChild.textContent = tag === 'DONE' ? 'Finished and checked on screen.' : 'Stopped before finishing. Nothing was submitted.';
   }
-  chat.appendChild(d); chat.scrollTop = chat.scrollHeight;
 }
 
 $('form').onsubmit = (e) => { e.preventDefault(); const t = $('text').value.trim(); $('text').value = ''; send(t); };
 document.querySelectorAll('.hint').forEach(b => b.onclick = () => send(b.textContent));
-$('reset').onclick = async () => { await fetch('/api/reset', { method: 'POST' }); chat.innerHTML = ''; $('hints').style.display = ''; add('act', 'Started a new conversation.'); };
+$('reset').onclick = async () => {
+  await fetch('/api/reset', { method: 'POST' });
+  $('history').innerHTML = ''; $('steps').innerHTML = ''; $('result').innerHTML = ''; $('heard').textContent = ''; stepCount = 0;
+  $('stepsSum').textContent = 'Every step Alexa took'; $('hints').hidden = false; $('timer').textContent = '';
+  const c = $('caption'); c.classList.add('empty'); c.textContent = 'New conversation. What can I do for you?'; setState('idle');
+};
 $('stop').onclick = () => fetch('/api/stop', { method: 'POST' });
-if (synth) synth.onvoiceschanged = () => {};
 </script>
 </body>
 </html>

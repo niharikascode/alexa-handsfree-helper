@@ -39,7 +39,7 @@ Browser page (localhost:8780)                     app/server.js (Node, no depend
 
   It works by looking at the screen. It takes a screenshot, reads it, does one action, then takes another screenshot to check the result.
 - **The voice layer** ([app/server.js](app/server.js)) adds the Alexa+ persona and rules: short spoken sentences, never confirm a final action on the user's behalf, and end with `ASK:`, `DONE:` or `BLOCKED:`. It streams the agent's events to the page and keeps the session ID on disk, so the conversation survives restarts.
-- **The Alexa+ page** ([app/public/index.html](app/public/index.html)) is one HTML file:
+- **The Alexa+ page** ([app/public/index.html](app/public/index.html)) is one HTML file, designed for low-vision users. It uses Atkinson Hyperlegible, a typeface made by the Braille Institute for low-vision readers. A light bar in the style of an Echo device shows Alexa's state (listening, working, needs your OK, done), and Alexa's current spoken line appears as a large live caption. The page also has:
   - speech in: the page records with MediaRecorder and stops automatically when you pause. The audio goes to `POST /api/stt`, where a local **faster-whisper** model ([app/stt_worker.py](app/stt_worker.py), CPU, about 1 s per command) transcribes it. No cloud speech service is involved, so it works where Chrome's built-in recognition can't reach Google.
   - speech out: the browser's built-in text-to-speech
   - a text box as fallback
