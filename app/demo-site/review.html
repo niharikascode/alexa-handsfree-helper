@@ -1,0 +1,14 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Maple Street Pharmacy – Review refill</title><link rel="stylesheet" href="style.css"></head><body>
+<header><div class="logo">M</div><h1>Maple Street Pharmacy</h1><div class="who">Signed in as Jordan Lee</div></header>
+<main><div class="card"><h2>Review your refill</h2>
+<div class="rx"><div class="info"><div class="name" id="name"></div><div class="meta" id="meta"></div></div><span class="pill">$4.00 copay</span></div>
+<form action="done.html" onsubmit="document.getElementById('rxf').value=document.getElementById('name').textContent"><input type="hidden" name="rx" id="rxf">
+<label for="store">Pickup store</label><select id="store" name="store"><option>Maple Street – 412 Maple St</option><option>Riverside – 88 Oak Ave</option></select>
+<label for="pickup">Pickup time</label><select id="pickup" name="pickup">
+<option value="">Choose a pickup time…</option><option>Today, 5:00 PM</option><option>Tomorrow, 10:00 AM</option><option>Tomorrow, 2:00 PM</option><option>Saturday, 11:00 AM</option></select>
+<div class="row"><button class="btn" type="submit" onclick="if(!document.getElementById('pickup').value){alert('Please choose a pickup time.');return false}">Place refill order</button><a class="btn secondary" href="rx.html">Cancel</a></div>
+</form></div></main>
+<script>const RX={lisinopril:['Lisinopril 10 mg','Blood pressure · 30 tablets · Dr. Patel'],atorvastatin:['Atorvastatin 20 mg','Cholesterol · 30 tablets · Dr. Patel'],vitd:['Vitamin D3 2000 IU','Supplement · 90 capsules']};
+const r=RX[new URLSearchParams(location.search).get('rx')]||RX.lisinopril;document.getElementById('name').textContent=r[0];document.getElementById('meta').textContent=r[1];</script>
+</body></html>

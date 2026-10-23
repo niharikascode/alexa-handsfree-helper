@@ -1,0 +1,12 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Maple Street Pharmacy – Refill confirmed</title><link rel="stylesheet" href="style.css"></head><body>
+<header><div class="logo">M</div><h1>Maple Street Pharmacy</h1><div class="who">Signed in as Jordan Lee</div></header>
+<main><div class="card" style="text-align:center"><div class="ok">✔</div><h2>Refill order placed</h2>
+<p><span id="rx"></span> will be ready for pickup <b id="when"></b> at <span id="store"></span>.</p>
+<p>Order number</p><div class="big" id="num"></div>
+<div class="row" style="justify-content:center"><a class="btn secondary" href="rx.html">Back to prescriptions</a></div></div></main>
+<script>const q=new URLSearchParams(location.search);
+const $=(id)=>document.getElementById(id);
+$('rx').textContent=q.get('rx')||'Your prescription';$('when').textContent=q.get('pickup')||'soon';
+document.getElementById('store').textContent=q.get('store')||'Maple Street – 412 Maple St';
+$('num').textContent='MSP-'+(48000+Math.floor(Math.random()*1000));</script></body></html>

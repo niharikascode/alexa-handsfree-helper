@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Hands-Free Helper</title>
+<style>
+:root{--bg:#0b1220;--panel:#121b2e;--panel2:#18233a;--line:#24324f;--text:#e8eefc;--muted:#93a3c4;
+  --cyan:#3fd0ff;--cyan2:#1a8fd6;--ok:#3ddc97;--warn:#ffc35a;--bad:#ff6b6b;--user:#2b3a5c}
+*{box-sizing:border-box}html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--text);font:16px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+.app{display:grid;grid-template-columns:440px 1fr;height:100vh}
+.side{display:flex;flex-direction:column;border-right:1px solid var(--line);background:var(--panel);min-height:0}
+.top{display:flex;align-items:center;gap:10px;padding:16px 18px;border-bottom:1px solid var(--line)}
+.top h1{font-size:17px;margin:0}.top .tag{font-size:12px;color:var(--muted);border:1px solid var(--line);border-radius:99px;padding:2px 9px}
+.top .sp{flex:1}
+.iconbtn{background:var(--panel2);border:1px solid var(--line);color:var(--muted);border-radius:8px;padding:6px 10px;font-size:13px;cursor:pointer}
+.iconbtn:hover{color:var(--text)}
+.ringwrap{display:flex;flex-direction:column;align-items:center;padding:22px 0 12px}
+.ring{width:118px;height:118px;border-radius:50%;border:none;cursor:pointer;position:relative;
+  background:radial-gradient(circle at 50% 50%,#0f1a30 52%,transparent 53%),conic-gradient(var(--cyan2),var(--cyan),var(--cyan2));
+  box-shadow:0 0 0 0 rgba(63,208,255,.0);transition:transform .15s}
+.ring:active{transform:scale(.96)}
+.ring svg{position:absolute;inset:0;margin:auto;width:40px;height:40px;fill:var(--cyan)}
+.ring.listening{animation:pulse 1.1s infinite}
+.ring.thinking{background:radial-gradient(circle at 50% 50%,#0f1a30 52%,transparent 53%),conic-gradient(from 0deg,var(--cyan) 0 25%,#1b2a48 25% 100%);animation:spin 1s linear infinite}
+.ring.speaking{animation:pulse .6s infinite}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(63,208,255,.55)}100%{box-shadow:0 0 0 22px rgba(63,208,255,0)}}
+@keyframes spin{to{transform:rotate(360deg)}}
+.state{margin-top:12px;color:var(--muted);font-size:14px;min-height:20px}
+.chat{flex:1;overflow:auto;padding:6px 16px 10px;display:flex;flex-direction:column;gap:8px;min-height:0}
+.msg{max-width:88%;padding:9px 13px;border-radius:14px;white-space:pre-wrap}
+.msg.user{align-self:flex-end;background:var(--user);border-bottom-right-radius:4px}
+.msg.alexa{align-self:flex-start;background:var(--panel2);border:1px solid var(--line);border-bottom-left-radius:4px}
+.act{align-self:flex-start;font-size:13px;color:var(--muted);padding:1px 6px}
+.card{align-self:stretch;border-radius:14px;padding:14px 16px;border:1px solid var(--line);background:linear-gradient(160deg,#16233d,#121b2e)}
+.card .k{font-size:12px;letter-spacing:.08em;text-transform:uppercase;font-weight:700;margin-bottom:4px}
+.card.ask .k{color:var(--warn)}.card.done .k{color:var(--ok)}.card.blocked .k{color:var(--bad)}
+.card .row{display:flex;gap:8px;margin-top:10px}
+.card button{flex:1;padding:9px;border-radius:10px;border:0;font-weight:700;font-size:15px;cursor:pointer}
+.yes{background:var(--ok);color:#06281a}.no{background:var(--panel2);color:var(--text);border:1px solid var(--line)!important}
+.composer{display:flex;gap:8px;padding:12px 16px;border-top:1px solid var(--line)}
+.composer input{flex:1;background:var(--panel2);border:1px solid var(--line);color:var(--text);border-radius:10px;padding:10px 12px;font-size:15px}
+.composer button{background:var(--cyan2);border:0;color:#fff;border-radius:10px;padding:0 16px;font-weight:700;cursor:pointer}
+.hints{display:flex;flex-wrap:wrap;gap:6px;padding:0 16px 12px}
+.hint{font-size:12.5px;color:var(--muted);background:transparent;border:1px dashed var(--line);border-radius:99px;padding:4px 10px;cursor:pointer}
+.hint:hover{color:var(--text);border-color:var(--cyan2)}
+.screen{position:relative;display:flex;flex-direction:column;min-width:0}
+.screenbar{display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--line);font-size:13px;color:var(--muted)}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--muted)}.dot.live{background:var(--ok);box-shadow:0 0 8px var(--ok)}
+.screenbar .sp{flex:1}
+iframe{flex:1;border:0;width:100%;background:#000}
+.empty{position:absolute;inset:44px 0 0;display:grid;place-items:center;color:var(--muted);text-align:center;padding:20px;pointer-events:none}
+@media (max-width:900px){.app{grid-template-columns:1fr;grid-template-rows:auto 50vh;height:auto}.side{min-height:70vh}}
+</style>
+</head>
+<body>
+<div class="app">
+  <section class="side">
+    <div class="top"><h1>Hands-Free Helper</h1><span class="tag">simulated Alexa+</span><span class="sp"></span>
+      <button class="iconbtn" id="stop" title="Stop the agent">Stop</button>
+      <button class="iconbtn" id="reset" title="Forget this conversation">New chat</button></div>
+    <div class="ringwrap">
+      <button class="ring" id="ring" aria-label="Talk to Alexa"><svg viewBox="0 0 24 24"><path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 1 0-6 0v6a3 3 0 0 0 3 3Zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-2.08A7 7 0 0 0 19 12h-2Z"/></svg></button>
+      <div class="state" id="state">Tap the ring or press Space, then speak</div>
+    </div>
+    <div class="chat" id="chat"></div>
+    <div class="hints" id="hints">
+      <button class="hint">Alexa, refill my blood pressure medication at Maple Street Pharmacy</button>
+      <button class="hint">When is my refill ready again?</button>
+    </div>
+    <form class="composer" id="form"><input id="text" placeholder="…or type what you'd say to Alexa" autocomplete="off"><button>Send</button></form>
+  </section>
+  <section class="screen">
+    <div class="screenbar"><span class="dot" id="dot"></span><span id="screenlbl">Agent's desktop: what Alexa is doing for you</span><span class="sp"></span><span id="timer"></span></div>
+    <iframe id="vnc" title="Live agent desktop"></iframe>
+    <div class="empty" id="empty">The desktop starts on your first request.</div>
+  </section>
+</div>
+<script>
+const $ = (id) => document.getElementById(id);
+const chat = $('chat'), ring = $('ring'), stateEl = $('state');
+let cfg = {}, running = false, t0 = 0, tick;
+
+let vncLoaded = false;
+fetch('/api/config').then(r => r.json()).then(c => { cfg = c; if (c.desktopUp) loadVnc(); });
+function loadVnc() {
+  if (vncLoaded) return; vncLoaded = true;
+  const f = $('vnc');
+  f.src = `http://${location.hostname}:${cfg.vncWebPort}/vnc.html?autoconnect=1&resize=scale&view_only=1&reconnect=1&reconnect_delay=1500`;
+  f.onload = () => { $('empty').style.display = 'none'; $('dot').classList.add('live'); };
+}
+
+function setState(s, label) { ring.className = 'ring ' + s; stateEl.textContent = label; }
+function add(cls, text) { const d = document.createElement('div'); d.className = cls; d.textContent = text; chat.appendChild(d); chat.scrollTop = chat.scrollHeight; return d; }
+
+// Split an agent message into spoken text and an optional ASK/DONE/BLOCKED tag.
+function parse(text) {
+  const m = text.match(/^(ASK|DONE|BLOCKED):\s*(.+)$/m);
+  const body = text.replace(/^(ASK|DONE|BLOCKED):.*$/m, '').trim();
+  return { body, tag: m && m[1], tagText: m && m[2].trim() };
+}
+
+// --- speech out ---
+const synth = window.speechSynthesis; let speakQ = Promise.resolve();
+function speak(text) {
+  if (!synth || !text) return speakQ;
+  speakQ = speakQ.then(() => new Promise(res => {
+    const u = new SpeechSynthesisUtterance(text.replace(/[*_`#]/g, ''));
+    const v = synth.getVoices().find(v => /Samantha|Google US English|Jenny|Aria|Female/i.test(v.name)); if (v) u.voice = v;
+    u.rate = 1.05; u.onend = u.onerror = res;
+    if (!running) setState('speaking', 'Speaking…');
+    synth.speak(u);
+  }));
+  return speakQ;
+}
+
+// --- speech in ---
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition; let rec = null;
+function listen() {
+  if (running) return;
+  if (!SR) { $('text').focus(); stateEl.textContent = 'Speech input not supported here, type instead'; return; }
+  synth && synth.cancel();
+  rec = new SR(); rec.lang = 'en-US'; rec.interimResults = true;
+  let final = '';
+  rec.onresult = (e) => { final = [...e.results].map(r => r[0].transcript).join(''); stateEl.textContent = '“' + final + '”'; };
+  rec.onend = () => { rec = null; if (final.trim()) send(final.trim()); else setState('', 'Tap the ring or press Space, then speak'); };
+  rec.onerror = () => setState('', 'Didn’t catch that, try again');
+  setState('listening', 'Listening…'); rec.start();
+}
+ring.onclick = () => rec ? rec.stop() : listen();
+document.addEventListener('keydown', (e) => { if (e.code === 'Space' && document.activeElement.tagName !== 'INPUT') { e.preventDefault(); ring.click(); } });
+
+// --- talk to the agent ---
+async function send(text) {
+  if (running || !text) return;
+  $('hints').style.display = 'none';
+  add('msg user', text); running = true; setState('thinking', 'Working on it…');
+  t0 = Date.now(); tick = setInterval(() => $('timer').textContent = Math.round((Date.now() - t0) / 1000) + 's', 500);
+  let lastTag = null;
+  try {
+    const r = await fetch('/api/ask', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text }) });
+    const reader = r.body.getReader(), dec = new TextDecoder(); let buf = '';
+    for (;;) {
+      const { value, done } = await reader.read(); if (done) break;
+      buf += dec.decode(value, { stream: true });
+      let i; while ((i = buf.indexOf('\n\n')) >= 0) {
+        const chunk = buf.slice(0, i); buf = buf.slice(i + 2);
+        if (!chunk.startsWith('data: ')) continue;
+        const ev = JSON.parse(chunk.slice(6));
+        if (ev.type === 'status') { stateEl.textContent = ev.text; if (ev.text.startsWith('Working')) loadVnc(); }
+        if (ev.type === 'activity') { add('act', ev.text); stateEl.textContent = ev.text; }
+        if (ev.type === 'say') {
+          const p = parse(ev.text);
+          if (p.body) { add('msg alexa', p.body); speak(p.body); }
+          if (p.tag) { card(p.tag, p.tagText); speak(p.tagText); lastTag = p.tag; }
+        }
+        if (ev.type === 'error') { add('msg alexa', ev.text); speak(ev.text); }
+      }
+    }
+  } catch (e) { add('msg alexa', 'Sorry, I lost the connection.'); }
+  running = false; clearInterval(tick);
+  await speakQ; setState('', 'Tap the ring or press Space, then speak');
+  if (lastTag === 'ASK' && SR) listen();   // hands-free: wait for the spoken yes/no
+}
+
+function card(tag, text) {
+  const d = document.createElement('div'); d.className = 'card ' + tag.toLowerCase();
+  d.innerHTML = `<div class="k">${{ ASK: 'Needs your OK', DONE: 'Done', BLOCKED: 'Couldn’t finish' }[tag]}</div><div></div>`;
+  d.children[1].textContent = text;
+  if (tag === 'ASK') {
+    const row = document.createElement('div'); row.className = 'row';
+    row.innerHTML = '<button class="yes">Yes, go ahead</button><button class="no">No</button>';
+    row.querySelector('.yes').onclick = () => { rec && rec.abort(); send('Yes, go ahead.'); };
+    row.querySelector('.no').onclick = () => { rec && rec.abort(); send("No, don't do that."); };
+    d.appendChild(row);
+  }
+  chat.appendChild(d); chat.scrollTop = chat.scrollHeight;
+}
+
+$('form').onsubmit = (e) => { e.preventDefault(); const t = $('text').value.trim(); $('text').value = ''; send(t); };
+document.querySelectorAll('.hint').forEach(b => b.onclick = () => send(b.textContent));
+$('reset').onclick = async () => { await fetch('/api/reset', { method: 'POST' }); chat.innerHTML = ''; $('hints').style.display = ''; add('act', 'Started a new conversation.'); };
+$('stop').onclick = () => fetch('/api/stop', { method: 'POST' });
+if (synth) synth.onvoiceschanged = () => {};
+</script>
+</body>
+</html>

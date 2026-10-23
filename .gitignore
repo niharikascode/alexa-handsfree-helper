@@ -1,0 +1,4 @@
+# runtime state: desktop HOME, Chrome profile, screenshots, logs, session id
+_run/
+node_modules/
+.DS_Store
