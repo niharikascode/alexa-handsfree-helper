@@ -7,9 +7,9 @@ Paste each section into the matching Devpost field. Edit freely; it should sound
 ## Track and challenges
 - **Primary track:** Alexa+. A simulated Alexa+ experience whose front end is a real MCP client of a self-hosted MCP server (Streamable HTTP, spec 2025-11-25), built on runtime-loaded Agent Skills.
 - **Mini challenge:** Open Source, with a *separate, additional* project:
-  - **Contribution URL:** `https://github.com/<you>/vnc-computer-use-skills` (new MIT repo)
-  - **Project repository URL:** `https://github.com/<you>/alexa-handsfree-helper`
-  - **GitHub username:** `<you>`
+  - **Contribution URL:** `https://github.com/niharikascode/vnc-computer-use-skills` (new MIT repo)
+  - **Project repository URL:** `https://github.com/niharikascode/alexa-handsfree-helper`
+  - **GitHub username:** `niharikascode`
   - **What I did:** extracted the computer-use layer into a standalone, reusable set of Agent Skills for Claude Code: a VNC desktop you can watch and take over (`vnc-desktop`), plus a screenshot, click and type toolkit (`computer-use`) that enforces "act once, then re-screenshot to confirm", with numbered screenshots and an action audit log.
   - **How it works:** Xvfb, XFCE, x11vnc and noVNC for the desktop; xdotool and scrot for input and capture; SKILL.md files that any Claude Code agent loads.
   - **Why it matters:** it gives any developer a safe, observable computer-use sandbox in minutes. The voice assistant uses it as-is.

@@ -117,7 +117,7 @@ Amazon has said Alexa+ can browse websites on its own to finish tasks (Amazon No
   - this repository
 
 ## Related
-The two computer-use Agent Skills are also published on their own as a reusable open-source project: **vnc-computer-use-skills**.
+The two computer-use Agent Skills are also published on their own as a reusable open-source project: **[vnc-computer-use-skills](https://github.com/niharikascode/vnc-computer-use-skills)**.
 
 ## License
 MIT. See [LICENSE](LICENSE).
