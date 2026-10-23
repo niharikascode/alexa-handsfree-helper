@@ -15,7 +15,7 @@ const VNC_WEB_PORT = process.env.VNC_WEB_PORT || '8767';
 const DISPLAY = process.env.VNC_DISPLAY || ':37';
 const VNC_SH = path.join(ROOT, '.claude/skills/vnc-desktop/scripts/vnc.sh');
 const SESSION_FILE = path.join(RUN, 'session.json');
-const DEMO_URL = `http://127.0.0.1:${PORT}/demo-site/`;
+const DEMO_URL = `http://127.0.0.1:${PORT}/demo-site/home.html`;   // blank start page; tasks use real sites
 const NOVNC_DIR = process.env.NOVNC_DIR || '/usr/share/novnc';   // noVNC's RFB client, embedded in our page
 const TZ = process.env.TZ || 'America/Los_Angeles';   // desktop clock + agent's sense of "today"
 fs.mkdirSync(RUN, { recursive: true });
@@ -24,23 +24,34 @@ const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.
   '.svg': 'image/svg+xml', '.png': 'image/png', '.json': 'application/json' };
 
 // The voice persona sits on top of the vnc-agent's own instructions.
-const VOICE_RULES = `You are the agent behind Alexa+, helping a user who cannot easily see or use a screen.
-They speak a request; you do it on the VNC desktop through the GUI. The desktop is already running with
-Chrome open full screen (kiosk mode: no address bar or tabs; navigate by clicking on the page), and the
-user is already watching it, so never mention URLs, ports, the browser or the desktop itself.
+const VOICE_RULES = `You are the agent behind Alexa+, helping Jordan Lee, 72, who has low vision and can't easily read a screen.
+Jordan speaks a request; you do it on real websites in Chrome on the VNC desktop. Chrome is already open full screen
+(kiosk: no address bar). Open a site with \`cua goto <url>\`, then work by looking and clicking. Jordan is already
+watching the screen, so never mention URLs, ports, the browser or the desktop.
+What you know about Jordan: lives in downtown Seattle, WA, ZIP 98101; takes Lisinopril 10 mg for blood pressure;
+walks every afternoon; has a Seattle Public Library card. Use these details without asking.
+Use official sources and go straight to them:
+- medicines: https://medlineplus.gov/druginfo/meds/a692051.html is Lisinopril (otherwise search medlineplus.gov)
+- library books (Jordan reads large print): Seattle Public Library catalog,
+  https://seattle.bibliocommons.com/v2/search?query=<title words, + "large print">&searchType=smart
+  Say whether a large-print copy is available. Placing a hold opens the library sign-in: ask first.
+- air quality: https://www.airnow.gov/?city=Seattle&state=WA&country=USA
+- weather: https://forecast.weather.gov/MapClick.php?textField1=47.6062&textField2=-122.3321
 Voice rules:
 - Every text message you write is read aloud. Keep each to one short, friendly sentence.
-- Narrate only milestones (about 3-5 per task), e.g. "I'm signed in, looking for your prescription."
-  Never talk about your tools, skills, screenshots or reasoning - only about the user's task.
+- Narrate only milestones (2-4 per task), e.g. "I'm on the National Weather Service forecast for Seattle."
+  Never talk about your tools, skills, screenshots or reasoning - only about Jordan's task.
+- Answer from what you actually see on the page, in plain language, at most 3 short sentences. Never guess from memory.
+- Jordan is watching: when you give the answer, leave the page scrolled to the part that shows it.
+- Work quickly: use the fewest actions, act on what you see, re-screenshot only when needed to confirm.
+- NEVER book, schedule, sign up, submit, buy or send anything, and never open a third-party booking or sign-in page,
+  without Jordan's explicit yes in this conversation. Get everything ready, then stop and ask.
 - Use this project's vnc-desktop and computer-use skills (scripts under .claude/skills/) for the GUI.
-- Work quickly: act on what you see, re-screenshot only when needed to confirm.
-- NEVER press a final Submit / Place order / Send / Pay button without the user's explicit yes in
-  this conversation. Get everything ready, then stop and ask.
 - End your final message with exactly one tag line:
-    ASK: <the yes/no question to read aloud>     (waiting on the user)
-    DONE: <one-sentence spoken summary>          (task finished, verified on screen)
+    ASK: <the yes/no question to read aloud>     (waiting on Jordan)
+    DONE: <the answer or summary, spoken>        (task finished, verified on screen)
     BLOCKED: <why, spoken>                       (cannot continue)
-- For questions about earlier requests, answer from this conversation without touching the desktop.`;
+- If Jordan asks about something from earlier, open that page again and confirm it on screen before answering.`;
 
 let session = null;           // claude session id, persisted so Alexa remembers across restarts
 try { session = JSON.parse(fs.readFileSync(SESSION_FILE, 'utf8')).session; } catch {}
@@ -88,13 +99,13 @@ async function ensureDesktop(send) {
     fs.writeFileSync(prefs, JSON.stringify({ credentials_enable_service: false, profile: { password_manager_enabled: false } }));
   }
   spawn('google-chrome', ['--no-sandbox', '--test-type', '--no-first-run', '--no-default-browser-check',
-    '--kiosk', '--no-proxy-server', '--disable-features=Translate', '--noerrdialogs', '--disable-session-crashed-bubble', `--user-data-dir=${path.join(RUN, 'chrome')}`, DEMO_URL],
+    '--kiosk', '--remote-debugging-port=9444', '--no-proxy-server', '--disable-features=Translate', '--noerrdialogs', '--disable-session-crashed-bubble', `--user-data-dir=${path.join(RUN, 'chrome')}`, DEMO_URL],
     { env: { ...process.env, DISPLAY, TZ, HOME: path.join(RUN, 'home') }, detached: true, stdio: 'ignore' }).unref();
   send({ type: 'status', text: 'Opening the browser…' });
   // a fresh Chrome can take ~20 s before its first page paints; wait for the real page title
   for (let i = 0; i < 40; i++) {
     await new Promise((r) => setTimeout(r, 1000));
-    const title = await new Promise((r) => execFile('xdotool', ['search', '--onlyvisible', '--name', 'Maple Street'],
+    const title = await new Promise((r) => execFile('xdotool', ['search', '--onlyvisible', '--name', "Alexa's browser"],
       { env: { ...process.env, DISPLAY } }, (e, out) => r(String(out || '').trim())));
     if (title) break;
   }

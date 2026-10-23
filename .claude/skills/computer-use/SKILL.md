@@ -14,7 +14,7 @@ the desktop must be running - see the vnc-desktop skill).
     cua key <key>...            Return, Tab, ctrl+a, BackSpace, alt+Left ...
     cua clear                   select-all + delete
     cua scroll up|down [n]
-    cua goto <url>              browser address bar of the current window
+    cua goto <url>              open a URL in the browser (works in full-screen/kiosk mode too)
     cua wait <seconds>
 
 Loop: `cua shot` -> Read the image -> one action -> `cua shot` again to confirm it

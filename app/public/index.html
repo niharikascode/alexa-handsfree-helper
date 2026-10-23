@@ -82,7 +82,7 @@ body[data-state=thinking] .mic,body[data-state=speaking] .mic{background:var(--i
 .typed{display:flex;gap:8px}
 .typed input{flex:1;min-width:0;border:1px solid var(--rule);border-radius:10px;padding:10px 14px;font-size:16px;background:var(--paper)}
 .typed button{border:1px solid var(--rule);background:var(--surface);border-radius:10px;padding:0 16px;font-size:16px;cursor:pointer}
-.try{font-size:15px;color:var(--ink-3)}
+.try{font-size:15px;color:var(--ink-3);line-height:1.7}
 .try button{background:none;border:0;padding:0;color:var(--listen);text-decoration:underline;text-underline-offset:3px;cursor:pointer;font-size:15px;text-align:left}
 
 /* right: what Alexa is doing */
@@ -134,7 +134,7 @@ body:not([data-state=idle]) .frame{box-shadow:0 0 0 16px #1A2129,0 0 0 19px var(
     <div class="stage">
       <div class="status" id="state" role="status" aria-live="polite">Ready</div>
       <p class="heard" id="heard"></p>
-      <p class="caption empty" id="caption" aria-live="polite">Ask for anything you’d normally do on a website. I’ll do it, tell you how it’s going, and check with you before anything is sent.</p>
+      <p class="caption empty" id="caption" aria-live="polite">Hi Jordan. Ask me about your medicine, library books, the air or the weather. I’ll look it up on trusted sites, tell you how it’s going, and check with you before anything is booked.</p>
       <div id="result"></div>
       <details class="history" id="historyBox">
         <summary>Conversation so far</summary>
@@ -148,7 +148,11 @@ body:not([data-state=idle]) .frame{box-shadow:0 0 0 16px #1A2129,0 0 0 19px var(
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 1 0-6 0v6a3 3 0 0 0 3 3Zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-2.08A7 7 0 0 0 19 12h-2Z"/></svg>
         <span id="micLabel">Tap to talk</span><kbd>Space</kbd>
       </button>
-      <div class="try" id="hints">Try: <button class="hint">Refill my blood pressure medication at Maple Street Pharmacy</button></div>
+      <div class="try" id="hints">Try:
+        <button class="hint">What side effects should I watch for with my Lisinopril?</button> ·
+        <button class="hint">Can I borrow a large-print copy of Lessons in Chemistry?</button> ·
+        <button class="hint">Is the air OK for my walk this afternoon?</button> ·
+        <button class="hint">Will it rain tomorrow?</button></div>
       <form class="typed" id="form"><input id="text" placeholder="Or type your request" autocomplete="off" aria-label="Type your request"><button>Send</button></form>
     </div>
   </section>
@@ -324,7 +328,7 @@ let awaitingOk = false;
 const YES = /^(yes|yeah|yep|sure|ok(ay)?|go ahead|do it|please do|place it)\b/i, NO = /^(no|nope|stop|don'?t|cancel|wait)\b/i;
 async function send(text) {
   if (running || !text) return;
-  $('hints').hidden = true; $('result').innerHTML = '';
+  $('result').innerHTML = '';
   $('heard').textContent = '“' + text + '”'; remember('You', text);
   running = true; setState('thinking'); caption('On it.');
   t0 = Date.now(); tick = setInterval(() => $('timer').textContent = Math.round((Date.now() - t0) / 1000) + ' s', 500);
