@@ -24,10 +24,11 @@ Say what you need. Alexa does it on a real web page, tells you what it's doing, 
 
 **The problem.** Voice assistants are good at things that have an API. Much of daily life doesn't: refilling a prescription, rescheduling an appointment or paying a utility bill usually means getting through a website. For someone who is blind, has low vision, has tremors, or is an older adult whose caretaker isn't around, that website is a wall.
 
-**What it does.** Hands-Free Helper is a simulated Alexa+ experience. You speak a request, such as "Alexa, refill my blood pressure medication at Maple Street Pharmacy." An AI agent then carries it out in Alexa's own browser in the cloud (nothing runs on the user's computer), shown live next to the conversation. This mirrors how Amazon describes Alexa+ browsing the web on its own to finish tasks.
-- **Narration:** Alexa reads out each milestone ("I'm signed in and found your Lisinopril").
-- **Confirmation:** before anything that can't be undone, Alexa stops and asks: "Your refill is set for pickup tomorrow at 10 AM, $4 copay. Should I place the order?" Nothing is submitted until you say yes.
-- **Memory:** the conversation persists. "When is it ready again?" is answered from memory. Asking for the same refill twice gets "I already ordered that, do you want another?", even after the server restarts.
+**What it does.** Hands-Free Helper is a simulated Alexa+ experience. You speak a request, such as "What side effects should I watch for with my Lisinopril?" or "Can I borrow a large-print copy of Lessons in Chemistry?" An AI agent then carries it out in Alexa's own browser in the cloud (nothing runs on the user's computer), shown live next to the conversation. This mirrors how Amazon describes Alexa+ browsing the web on its own to finish tasks.
+- **Real, trusted sites:** MedlinePlus (NIH) for medicines, the Seattle Public Library catalog for large-print books, AirNow.gov (EPA) for air quality, and the National Weather Service for forecasts. Alexa answers only from what's on the page and leaves that part of the page on screen.
+- **Narration:** Alexa reads out each milestone ("I'm checking AirNow, the official air quality site, for Seattle").
+- **Confirmation:** before anything that commits the user (placing a library hold, booking, buying, submitting), Alexa stops and asks, for example "It's available. Would you like me to place a hold?" Nothing happens until you say yes.
+- **Context:** Alexa knows the user's city, ZIP, medicines and library card, and keeps one conversation across requests (it survives restarts). Questions about earlier results are re-checked on the page.
 
 **How it works.**
 - **The agent:** a Claude Code subagent (`vnc-agent`) with two Agent Skills.
@@ -39,7 +40,7 @@ Say what you need. Alexa does it on a real web page, tells you what it's doing, 
 - **The bridge:** a Node server with no dependencies. It runs the agent headlessly and keeps the session, so the conversation carries across turns.
 - **Speech in:** the browser records your voice and stops automatically when you pause. A local faster-whisper model on the server transcribes it in about 1 second, with no cloud speech service. That matters for privacy, since health requests never leave the machine, and it works on networks where browser speech recognition is blocked.
 - **The front end:** one HTML page. The browser's built-in text-to-speech handles speaking. It shows a live activity feed and Yes/No confirmation cards, and after Alexa asks a question it listens for the answer automatically.
-- **The demo site:** a made-up pharmacy site, so the demo behaves the same every run and never places a real order.
+- **Offline fallback:** a made-up pharmacy site (`app/demo-site/`) for showing a full order-with-confirmation flow without touching a real store.
 
 **Why it matters.** Most of the web will never get a voice skill or an MCP server. An agent that can use the existing GUI safely, with spoken narration and an explicit "yes" before it acts, makes the whole web reachable by voice. It's the same pattern an Alexa+ integration would use. Because the agent is already exposed as a standard MCP server, Alexa+ itself could hand off "do this on the website" tasks to it. Next steps: run the browser agent on Amazon Nova Act with Bedrock AgentCore Browser, and connect the MCP server to Alexa+ once add-on tooling opens up.
 
@@ -84,8 +85,10 @@ Say what you need. Alexa does it on a real web page, tells you what it's doing, 
 "Nova Act is how Alexa+ can work a website. Hands-Free Helper is about the person on the other end: someone who can't see the screen hears every step, sees it in large captions, and approves each final action by voice. It's exposed as a standard MCP server, so any assistant, including Alexa+, could hand it a task."
 
 ## Demo video script (under 3 minutes)
-1. **0:00–0:15** The problem: "Most of the web has no voice interface. For someone who can't use a screen, a pharmacy refill form is a wall."
-2. **0:15–1:30** Live demo. Say "Alexa, refill my blood pressure medication at Maple Street Pharmacy." Show the narration, the activity feed and the agent working on the desktop, ending at the confirmation question.
-3. **1:30–1:55** Say "Yes." The order is placed and the order number is read back, with the confirmation card on screen.
-4. **1:55–2:15** Ask "When is my refill ready again?" It's answered from memory. Then ask for the same refill again, and it warns that it's a duplicate.
-5. **2:15–2:45** Architecture: the page is an MCP client, so show the "connected to MCP server · 3 tools" label and the `MCP tools/call run_web_task` / `confirm_action` lines in "Every step". Optionally, show the same server listed in MCP Inspector. Then the confirmation safety rule, and what's next (Nova Act and AgentCore).
+Recorded in one take on http://localhost:8780 (click **New conversation** first). Speed up only the silent clicking.
+1. **0:00–0:15** Voiceover: "Most websites are hard to use if you can't see the screen. This is Hands-Free Helper, a simulated Alexa+ that uses real websites for you, out loud."
+2. **0:15–0:50** "What side effects should I watch for with my Lisinopril?" → MedlinePlus (NIH) side-effects section on screen, read back in plain language.
+3. **0:50–1:30** "Can I borrow a large-print copy of Lessons in Chemistry?" → Seattle Public Library catalog: Large Print, Available. Alexa asks "Would you like me to place a hold?" → "No, not now." → nothing reserved (the confirmation safeguard).
+4. **1:30–1:55** "Is the air OK for my walk this afternoon?" → AirNow.gov (EPA) for Seattle.
+5. **1:55–2:20** "Will it rain tomorrow?" → National Weather Service forecast.
+6. **2:20–2:55** Voiceover: "The page is an MCP client of a self-hosted MCP server (spec 2025-11-25), speech is transcribed on the machine, and it never books, buys or submits without your yes." Point at "connected to MCP server · 3 tools" and open "Every step Alexa took" to show the `tools/call` lines.

@@ -10,6 +10,14 @@ Hands-Free Helper lets you **say what you need**. An AI agent then does the task
 - **remembers the conversation**, so follow-ups like "when is it ready again?" work, even after a restart
 
 ```
+ You: "What side effects should I watch for with my Lisinopril?"   → MedlinePlus (NIH), read in plain language
+ You: "Can I borrow a large-print copy of Lessons in Chemistry?"   → library: available; "Place a hold?" → "No, not now."
+ You: "Is the air OK for my walk this afternoon?"                  → AirNow.gov (EPA)
+ You: "Will it rain tomorrow?"                                     → National Weather Service
+```
+
+The original offline demo, with a made-up pharmacy, still works:
+```
  You: "Alexa, refill my blood pressure medication at Maple Street Pharmacy."
  Alexa: "I'm signed in and found your Lisinopril."
  Alexa: "Your refill is set for pickup tomorrow at 10 AM, $4 copay. Should I place the order?"
@@ -47,7 +55,8 @@ Browser page (localhost:8780)    POST /mcp        app/server.js + app/mcp.js (No
   - live activity lines ("Clicking at (640, 410)")
   - confirmation cards with Yes/No buttons; after asking, it listens for your answer automatically
   - Alexa's cloud browser, shown live in a device-style frame. noVNC's RFB client draws straight into the page (view-only, no noVNC interface), and Chrome runs in kiosk mode, so viewers see only the website.
-- **The demo site** ([app/demo-site/](app/demo-site/)) is a made-up local pharmacy ("Maple Street Pharmacy"). The demo behaves the same every run and never places a real order.
+- **Real sites:** the agent opens trusted public sites with `cua goto`: MedlinePlus, the Seattle Public Library catalog, AirNow.gov and weather.gov. Kiosk Chrome has no address bar, so it navigates through Chrome's local DevTools port ([nav.mjs](.claude/skills/computer-use/scripts/nav.mjs)). The voice rules hold the user's profile (Seattle 98101, Lisinopril, library card) and say: answer only from what's on screen, and ask before anything that commits the user.
+- **The demo site** ([app/demo-site/](app/demo-site/)) is a made-up local pharmacy ("Maple Street Pharmacy") for an offline order-with-confirmation demo, plus the blank start page.
 
 ## MCP server (Alexa+ integration surface)
 The Alexa+ page is an **MCP client**. It talks to the helper's **self-hosted MCP server** at `http://localhost:8780/mcp` ([app/mcp.js](app/mcp.js)): **Streamable HTTP, protocol version 2025-11-25**, using the `initialize`, `tools/list` and `tools/call` requests. Long-running tool calls stream `notifications/progress` and `notifications/message` (Alexa's narration and each GUI step) before returning the result.
